@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AMS · Gestión Patrimonial</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #f5f6fa;
+      --surface:   #ffffff;
+      --primary:   #1a2c4e;
+      --accent:    #3b6fce;
+      --accent-lt: #e8edf8;
+      --green:     #2a9d8f;
+      --green-lt:  #e6f5f3;
+      --amber:     #f4a261;
+      --amber-lt:  #fef4ec;
+      --red:       #e63946;
+      --red-lt:    #fdecea;
+      --text:      #1a2c4e;
+      --muted:     #7a869a;
+      --border:    #e4e8f0;
+      --radius:    12px;
+      --shadow:    0 2px 12px rgba(26,44,78,.07);
+    }
+
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.55; }
+
+    /* ─── NAV ─── */
+    header { background: var(--primary); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 60px; position: sticky; top: 0; z-index: 100; gap: 12px; }
+    .brand { color: #fff; font-weight: 700; font-size: 18px; letter-spacing: -.3px; white-space: nowrap; }
+    .brand span { color: #6fa3ef; }
+    nav { display: flex; gap: 4px; }
+    nav button { background: none; border: none; cursor: pointer; color: rgba(255,255,255,.65); padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; font-family: inherit; transition: all .15s; white-space: nowrap; }
+    nav button:hover  { color: #fff; background: rgba(255,255,255,.1); }
+    nav button.active { color: #fff; background: rgba(255,255,255,.18); }
+    .header-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .header-date { color: rgba(255,255,255,.5); font-size: 12px; white-space: nowrap; }
+
+    /* ─── LAYOUT ─── */
+    main { max-width: 1200px; margin: 0 auto; padding: 28px 24px 60px; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    h2 { font-size: 20px; font-weight: 700; margin-bottom: 20px; color: var(--primary); }
+    h3 { font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 14px; }
+
+    /* ─── CARDS ─── */
+    .card { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px 24px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+
+    /* ─── KPI CARDS ─── */
+    .kpi-card { border-radius: var(--radius); padding: 20px 22px; }
+    .kpi-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .7px; margin-bottom: 8px; }
+    .kpi-value { font-size: 26px; font-weight: 700; letter-spacing: -.5px; line-height: 1; }
+    .kpi-sub   { font-size: 12px; margin-top: 6px; }
+    .kpi-blue  { background: var(--primary); color: #fff; }
+    .kpi-blue  .kpi-label, .kpi-blue .kpi-sub { color: rgba(255,255,255,.6); }
+    .kpi-green { background: var(--green); color: #fff; }
+    .kpi-green .kpi-label, .kpi-green .kpi-sub { color: rgba(255,255,255,.65); }
+    .kpi-white { background: var(--surface); box-shadow: var(--shadow); }
+    .kpi-white .kpi-label { color: var(--muted); }
+    .kpi-white .kpi-value { color: var(--primary); }
+    .kpi-white .kpi-sub   { color: var(--muted); }
+
+    /* ─── TABLES ─── */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); font-weight: 600; padding: 8px 12px; border-bottom: 2px solid var(--border); text-align: left; }
+    .data-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: var(--bg); }
+    .data-table .total td { font-weight: 700; color: var(--primary); background: var(--bg); }
+    .text-right { text-align: right; }
+    .text-green { color: var(--green); font-weight: 600; }
+    .text-red   { color: var(--red);   font-weight: 600; }
+    .text-muted { color: var(--muted); }
+
+    /* ─── EDITABLE INPUTS ─── */
+    .edit-input {
+      border: 1px solid transparent; background: transparent; font-family: inherit;
+      font-size: 13.5px; text-align: right; width: 90px; color: var(--primary);
+      font-weight: 600; padding: 3px 5px; border-radius: 6px; transition: all .15s;
+      -moz-appearance: textfield;
+    }
+    .edit-input::-webkit-outer-spin-button, .edit-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .edit-input:hover { border-color: var(--border); background: var(--bg); }
+    .edit-input:focus { border-color: var(--accent); background: var(--accent-lt); outline: none; }
+    .edit-input.inc { color: var(--green); }
+    .edit-input.exp { color: var(--red); }
+    .inp-suffix { color: var(--muted); font-size: 12px; }
+
+    /* ─── BADGE ─── */
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-green { background: var(--green-lt); color: var(--green); }
+    .badge-amber { background: var(--amber-lt); color: #c96e20; }
+    .badge-red   { background: var(--red-lt);   color: var(--red); }
+    .badge-blue  { background: var(--accent-lt); color: var(--accent); }
+
+    /* ─── RATIO ─── */
+    .ratio-card { text-align: center; padding: 24px 18px; }
+    .ratio-value { font-size: 22px; font-weight: 700; }
+    .ratio-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .ratio-target { font-size: 11px; margin-top: 6px; }
+
+    /* ─── PROGRESS BAR ─── */
+    .progress-wrap { margin: 8px 0 4px; }
+    .progress-bar { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 4px; transition: width .4s ease; }
+    .fill-green { background: var(--green); }
+    .fill-amber { background: var(--amber); }
+    .fill-red   { background: var(--red); }
+    .fill-blue  { background: var(--accent); }
+
+    /* ─── DIVIDER ─── */
+    .divider { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+
+    /* ─── SECTION HEADER ─── */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .section-header h2 { margin-bottom: 0; }
+
+    /* ─── POS SECTION LABEL ─── */
+    .pos-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+    .pos-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* ─── INFO BOX ─── */
+    .info-box { background: var(--accent-lt); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 14px 16px; margin-bottom: 20px; font-size: 13px; }
+    .info-box strong { color: var(--accent); }
+
+    /* ─── CHART ─── */
+    .chart-wrap { position: relative; height: 220px; }
+
+    /* ─── BTN ─── */
+    .btn { border: none; cursor: pointer; font-family: inherit; font-weight: 600; font-size: 13px; padding: 9px 18px; border-radius: 8px; transition: all .15s; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #2d5bb5; }
+    .btn-ghost { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.2); }
+    .btn-ghost:hover { background: rgba(255,255,255,.25); }
+    .btn-export { background: var(--green); color: #fff; }
+    .btn-export:hover { background: #228b7e; }
+    .btn-reset { background: var(--amber-lt); color: #c96e20; border: 1px solid var(--amber); }
+    .btn-reset:hover { background: #fde8d0; }
+
+    /* ─── ADD ROW BTN ─── */
+    .add-row-btn { background: none; border: 1px dashed var(--border); color: var(--muted); font-size: 12px; font-family: inherit; cursor: pointer; width: 100%; padding: 7px; border-radius: 7px; margin-top: 8px; transition: all .15s; }
+    .add-row-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-lt); }
+    .del-row-btn { background: none; border: none; cursor: pointer; color: var(--border); font-size: 15px; padding: 2px 6px; border-radius: 5px; line-height: 1; }
+    .del-row-btn:hover { color: var(--red); background: var(--red-lt); }
+
+    /* ─── SIMULADOR ─── */
+    .sim-col-header { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; padding: 10px 14px; border-radius: 8px; text-align: center; }
+    .sim-frozen { background: var(--accent-lt); color: var(--accent); }
+    .sim-live   { background: var(--green-lt);  color: var(--green); }
+    .sim-block  { margin-bottom: 20px; }
+    .sim-block h3 { margin-bottom: 10px; }
+    .sim-table  { width: 100%; border-collapse: collapse; }
+    .sim-table th { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 600; padding: 7px 10px; border-bottom: 2px solid var(--border); }
+    .sim-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .sim-table tr:last-child td { border-bottom: none; }
+    .sim-table .sim-total td { font-weight: 700; background: var(--bg); }
+    .sim-diff-pos { color: var(--green); font-weight: 600; font-size: 12px; }
+    .sim-diff-neg { color: var(--red);   font-weight: 600; font-size: 12px; }
+    .sim-diff-neu { color: var(--muted); font-size: 12px; }
+
+    /* ─── HISTÓRICO ─── */
+    .hist-empty { text-align: center; padding: 48px 20px; color: var(--muted); font-size: 13px; }
+    .hist-table-wrap { overflow-x: auto; }
+    .hist-tag-pos { color: var(--green); font-weight: 600; }
+    .hist-tag-neg { color: var(--red);   font-weight: 600; }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 860px) {
+      .grid-4 { grid-template-columns: 1fr 1fr; }
+      .grid-3 { grid-template-columns: 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+      nav button { font-size: 12px; padding: 7px 9px; }
+      .brand { font-size: 15px; }
+    }
+    @media (max-width: 500px) {
+      .grid-4 { grid-template-columns: 1fr; }
+      main { padding: 16px 12px 40px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">AMS <span>·</span> Gestión Patrimonial</div>
+  <nav id="mainNav">
+    <button class="active" onclick="switchTab('resumen',this)">Resumen</button>
+    <button onclick="switchTab('posicion',this)">Posición</button>
+    <button onclick="switchTab('ratios',this)">Ratios</button>
+    <button onclick="switchTab('simulador',this)">Simulador</button>
+    <button onclick="switchTab('historico',this)">Histórico</button>
+  </nav>
+  <div class="header-right">
+    <button class="btn btn-export" style="padding:7px 14px;font-size:12px" onclick="exportSnapshot()">↓ Exportar posición</button>
+    <div class="header-date" id="fechaActual"></div>
+  </div>
+</header>
+
+<main>
+
+<!-- ══════════════════════════════════════════════════
+     TAB 1 · RESUMEN
+══════════════════════════════════════════════════ -->
+<div class="tab-content active" id="tab-resumen">
+
+  <div class="info-box">
+    <strong>Vinculación con Excel:</strong> Datos cargados desde <em>AMS_Activos_2025.xlsx</em>.
+    Edita los valores en la pestaña <strong>Posición</strong> o usa el botón para recargar desde el fichero.
+    <button class="btn btn-primary" style="margin-left:12px;padding:6px 14px;font-size:12px" onclick="document.getElementById('fileInput').click()">📂 Cargar Excel</button>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" onchange="handleFile(event)" />
+  </div>
+
+  <div class="grid-4">
+    <div class="kpi-card kpi-blue">
+      <div class="kpi-label">Patrimonio Neto</div>
+      <div class="kpi-value" id="kpi-nw">—</div>
+      <div class="kpi-sub">Activos − Pasivos</div>
+    </div>
+    <div class="kpi-card kpi-white">
+      <div class="kpi-label">Ingresos Mensuales</div>
+      <div class="kpi-value text-green" id="kpi-income">—</div>
+      <div class="kpi-sub">Sin bonus · <span id="kpi-income-bonus">+833 € bonus</span></div>
+    </div>
+    <div class="kpi-card kpi-white">
+      <div class="kpi-label">Gastos Mensuales</div>
+      <div class="kpi-value text-red" id="kpi-expenses">—</div>
+      <div class="kpi-sub">Hipotecas + vida + activos</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-label">Ahorro Mensual</div>
+      <div class="kpi-value" id="kpi-savings">—</div>
+      <div class="kpi-sub" id="kpi-savings-pct">Tasa de ahorro: —</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>Composición del Activo</h3>
+      <div class="chart-wrap"><canvas id="chartAssets"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Flujo Mensual</h3>
+      <div class="chart-wrap"><canvas id="chartCashflow"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card ratio-card">
+      <div class="ratio-label" style="margin-bottom:10px">Tasa de Esfuerzo (oficial)</div>
+      <div class="ratio-value" id="r1-val">—</div>
+      <div class="progress-wrap"><div class="progress-bar"><div class="progress-fill fill-green" id="r1-bar" style="width:0%"></div></div></div>
+      <div class="ratio-target">Objetivo: <strong>&lt; 35%</strong> &nbsp;<span class="badge badge-green" id="r1-badge">OK</span></div>
+    </div>
+    <div class="card ratio-card">
+      <div class="ratio-label" style="margin-bottom:10px">Ratio de Endeudamiento</div>
+      <div class="ratio-value" id="r2-val">—</div>
+      <div class="progress-wrap"><div class="progress-bar"><div class="progress-fill fill-green" id="r2-bar" style="width:0%"></div></div></div>
+      <div class="ratio-target">Objetivo: <strong>&lt; 70%</strong> &nbsp;<span class="badge badge-green" id="r2-badge">OK</span></div>
+    </div>
+    <div class="card ratio-card">
+      <div class="ratio-label" style="margin-bottom:10px">Cobertura de Liquidez</div>
+      <div class="ratio-value" id="r3-val">—</div>
+      <div class="progress-wrap"><div class="progress-bar"><div class="progress-fill fill-green" id="r3-bar" style="width:100%"></div></div></div>
+      <div class="ratio-target">Colchón: <strong>&gt; 6 meses</strong> &nbsp;<span class="badge badge-green" id="r3-badge">OK</span></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     TAB 2 · POSICIÓN (Flujo + Balance)
+══════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-posicion">
+
+  <div class="section-header">
+    <h2>Posición Patrimonial</h2>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <label style="font-size:13px;display:flex;align-items:center;gap:7px;cursor:pointer">
+        <input type="checkbox" id="inclBonus" onchange="recalcAll()" style="width:15px;height:15px">
+        Incluir bonus mensualizado
+      </label>
+      <button class="btn btn-reset" style="padding:7px 14px;font-size:12px" onclick="resetToBase()">↺ Restablecer datos Excel</button>
+    </div>
+  </div>
+
+  <!-- ── FLUJO DE CAJA ── -->
+  <div class="pos-label">Flujo de Caja Mensual</div>
+
+  <div class="grid-2">
+    <!-- INGRESOS editable -->
+    <div class="card">
+      <h3>Ingresos</h3>
+      <table class="data-table">
+        <thead><tr><th>Concepto</th><th>Origen</th><th class="text-right">€/mes</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Salario base neto (SAN)</td><td class="text-muted">Santander</td>
+            <td class="text-right"><input class="edit-input inc" type="number" id="inp-salario" value="2030" min="0" step="10" oninput="recalcAll()"> <span class="inp-suffix">€</span></td>
+          </tr>
+          <tr>
+            <td>Extras (pagas/prom.)</td><td class="text-muted">Santander</td>
+            <td class="text-right"><input class="edit-input inc" type="number" id="inp-extras" value="338.33" min="0" step="10" oninput="recalcAll()"> <span class="inp-suffix">€</span></td>
+          </tr>
+          <tr id="bonus-row" style="display:none">
+            <td>Bonus (prom. mensual)</td><td class="text-muted">Santander</td>
+            <td class="text-right"><input class="edit-input inc" type="number" id="inp-bonus" value="833.33" min="0" step="10" oninput="recalcAll()"> <span class="inp-suffix">€</span></td>
+          </tr>
+          <tr>
+            <td>Alquiler MAD – Garajes</td><td class="text-muted">Caixabank</td>
+            <td class="text-right"><input class="edit-input inc" type="number" id="inp-alqMAD" value="270" min="0" step="10" oninput="recalcAll()"> <span class="inp-suffix">€</span></td>
+          </tr>
+          <tr>
+            <td>Alquiler VAL – Palacio/Casa 2</td><td class="text-muted">Caixabank</td>
+            <td class="text-right"><input class="edit-input inc" type="number" id="inp-alqVAL" value="550" min="0" step="10" oninput="recalcAll()"> <span class="inp-suffix">€</span></td>
+          </tr>
+          <tr>
+            <td>Alquiler VAL – Jaime I (Plaza)</td><td class="text-muted">Caixabank</td>
+            <td class="text-right"><input class="edit-input inc" type="number" id="inp-alqPlaza" value="0" min="0" step="10" oninput="recalcAll()"> <span class="inp-suffix">€</span></td>
+          </tr>
+          <tr>
+            <td>Otros rendimientos activos</td><td class="text-muted">—</td>
+            <td class="text-right"><input class="edit-input inc" type="number" id="inp-otrosInc" value="850" min="0" step="10" oninput="recalcAll()"> <span class="inp-suffix">€</span></td>
+          </tr>
+          <tbody id="extra-ingresos"></tbody>
+        </tbody>
+        <tfoot>
+          <tr class="total"><td colspan="2"><strong>TOTAL INGRESOS</strong></td>
+          <td class="text-right text-green"><strong id="total-ingresos-val">—</strong></td></tr>
+        </tfoot>
+      </table>
+      <button class="add-row-btn" onclick="addRow('extra-ingresos','inc')">+ Añadir ingreso</button>
+    </div>
+
+    <!-- GASTOS editable -->
+    <div class="card">
+      <h3>Gastos</h3>
+      <table class="data-table">
+        <thead><tr><th>Concepto</th><th>Tipo</th><th class="text-right">€/mes</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Cuotas hipotecas</td><td><span class="badge badge-red">Deuda</span></td>
+            <td class="text-right"><input class="edit-input exp" type="number" id="inp-cuotas" value="839.10" min="0" step="10" oninput="recalcAll()"> <span class="inp-suffix">€</span></td>
+          </tr>
+          <tr>
+            <td>Gastos propiedades</td><td><span class="badge badge-amber">Activos</span></td>
+            <td class="text-right"><input class="edit-input exp" type="number" id="inp-gastosActivos" value="374.67" min="0" step="10" oninput="recalcAll()"> <span class="inp-suffix">€</span></td>
+          </tr>
+          <tr>
+            <td>Gastos de vida / particular</td><td><span class="badge badge-blue">Personal</span></td>
+            <td class="text-right"><input class="edit-input exp" type="number" id="inp-gastosVida" value="1210.17" min="0" step="10" oninput="recalcAll()"> <span class="inp-suffix">€</span></td>
+          </tr>
+          <tr>
+            <td>Aportación fondo inversión</td><td><span class="badge badge-green">Ahorro</span></td>
+            <td class="text-right"><input class="edit-input exp" type="number" id="inp-fondoInv" value="100" min="0" step="10" oninput="recalcAll()"> <span class="inp-suffix">€</span></td>
+          </tr>
+          <tbody id="extra-gastos"></tbody>
+        </tbody>
+        <tfoot>
+          <tr class="total"><td colspan="2"><strong>TOTAL GASTOS</strong></td>
+          <td class="text-right text-red"><strong id="total-gastos-val">—</strong></td></tr>
+          <tr style="background:var(--green-lt)">
+            <td colspan="2" style="font-weight:700;color:var(--primary)">AHORRO NETO</td>
+            <td class="text-right" style="font-weight:700;font-size:15px;color:var(--green)" id="ahorro-neto-val">—</td>
+          </tr>
+        </tfoot>
+      </table>
+      <button class="add-row-btn" onclick="addRow('extra-gastos','exp')">+ Añadir gasto</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:28px">
+    <h3>Desglose visual</h3>
+    <div class="chart-wrap" style="height:250px"><canvas id="chartFlujo"></canvas></div>
+  </div>
+
+  <!-- ── BALANCE PATRIMONIAL ── -->
+  <div class="pos-label">Balance Patrimonial</div>
+
+  <div class="grid-2">
+    <!-- ACTIVOS editable -->
+    <div class="card">
+      <h3>Activos &nbsp;<span id="total-activos-label" style="color:var(--green);font-size:15px;text-transform:none;letter-spacing:0;font-weight:700">—</span></h3>
+      <table class="data-table">
+        <thead><tr><th>Activo</th><th>Tipo</th><th class="text-right">Valor</th></tr></thead>
+        <tbody>
+          <tr><td>MAD – Garaje 12</td><td><span class="badge badge-blue">Inmobiliario</span></td>
+            <td class="text-right"><input class="edit-input" type="number" id="inp-garaje12" value="25000" min="0" step="1000" oninput="recalcAll()"> <span class="inp-suffix">€</span></td></tr>
+          <tr><td>MAD – Garaje 100</td><td><span class="badge badge-blue">Inmobiliario</span></td>
+            <td class="text-right"><input class="edit-input" type="number" id="inp-garaje100" value="22000" min="0" step="1000" oninput="recalcAll()"> <span class="inp-suffix">€</span></td></tr>
+          <tr><td>MAD – Garaje 189</td><td><span class="badge badge-blue">Inmobiliario</span></td>
+            <td class="text-right"><input class="edit-input" type="number" id="inp-garaje189" value="22000" min="0" step="1000" oninput="recalcAll()"> <span class="inp-suffix">€</span></td></tr>
+          <tr><td>VAL – Casa Palacio</td><td><span class="badge badge-blue">Inmobiliario</span></td>
+            <td class="text-right"><input class="edit-input" type="number" id="inp-palacio" value="150000" min="0" step="1000" oninput="recalcAll()"> <span class="inp-suffix">€</span></td></tr>
+          <tr><td>VAL – Casa 2</td><td><span class="badge badge-blue">Inmobiliario</span></td>
+            <td class="text-right"><input class="edit-input" type="number" id="inp-casa2" value="130000" min="0" step="1000" oninput="recalcAll()"> <span class="inp-suffix">€</span></td></tr>
+          <tr><td>VAL – Jaime I (Plaza)</td><td><span class="badge badge-blue">Inmobiliario</span></td>
+            <td class="text-right"><input class="edit-input" type="number" id="inp-plaza" value="86000" min="0" step="1000" oninput="recalcAll()"> <span class="inp-suffix">€</span></td></tr>
+          <tr><td>Fondos (Mapfre / Caixabank)</td><td><span class="badge badge-green">Financiero</span></td>
+            <td class="text-right"><input class="edit-input" type="number" id="inp-fondos" value="95000" min="0" step="1000" oninput="recalcAll()"> <span class="inp-suffix">€</span></td></tr>
+          <tr><td>Cuenta Santander</td><td><span class="badge badge-green">Liquidez</span></td>
+            <td class="text-right"><input class="edit-input" type="number" id="inp-santander" value="27000" min="0" step="1000" oninput="recalcAll()"> <span class="inp-suffix">€</span></td></tr>
+          <tr><td>Otros (vehículo, mobiliario)</td><td><span class="badge badge-amber">Otros</span></td>
+            <td class="text-right"><input class="edit-input" type="number" id="inp-otros" value="29000" min="0" step="1000" oninput="recalcAll()"> <span class="inp-suffix">€</span></td></tr>
+          <tbody id="extra-activos"></tbody>
+        </tbody>
+        <tfoot><tr class="total"><td colspan="2"><strong>TOTAL ACTIVOS</strong></td>
+          <td class="text-right text-green"><strong id="total-activos">—</strong></td></tr></tfoot>
+      </table>
+      <button class="add-row-btn" onclick="addRow('extra-activos','asset')">+ Añadir activo</button>
+    </div>
+
+    <!-- PASIVOS editable -->
+    <div class="card">
+      <h3>Pasivos &nbsp;<span id="total-pasivos-label" style="color:var(--red);font-size:15px;text-transform:none;letter-spacing:0;font-weight:700">—</span></h3>
+      <table class="data-table">
+        <thead><tr><th>Préstamo / Hipoteca</th><th>Cuota/mes</th><th class="text-right">Saldo vivo</th></tr></thead>
+        <tbody>
+          <tr><td>Hipoteca VAL – Casa Palacio</td><td class="text-muted">~250 €</td>
+            <td class="text-right"><input class="edit-input exp" type="number" id="inp-hipPalacio" value="62000" min="0" step="1000" oninput="recalcAll()"> <span class="inp-suffix">€</span></td></tr>
+          <tr><td>Hipoteca VAL – Casa 2</td><td class="text-muted">~220 €</td>
+            <td class="text-right"><input class="edit-input exp" type="number" id="inp-hipCasa2" value="54750" min="0" step="1000" oninput="recalcAll()"> <span class="inp-suffix">€</span></td></tr>
+          <tr><td>Hipoteca VAL – Jaime I (Plaza)</td><td class="text-muted">~252 €</td>
+            <td class="text-right"><input class="edit-input exp" type="number" id="inp-hipPlaza" value="38000" min="0" step="1000" oninput="recalcAll()"> <span class="inp-suffix">€</span></td></tr>
+          <tr><td>Hipoteca MAD – Garajes</td><td class="text-muted">~117 €</td>
+            <td class="text-right"><input class="edit-input exp" type="number" id="inp-hipGarajes" value="13000" min="0" step="1000" oninput="recalcAll()"> <span class="inp-suffix">€</span></td></tr>
+          <tbody id="extra-pasivos"></tbody>
+        </tbody>
+        <tfoot>
+          <tr class="total"><td colspan="2"><strong>TOTAL PASIVOS</strong></td>
+            <td class="text-right text-red"><strong id="total-pasivos">—</strong></td></tr>
+          <tr style="background:var(--accent-lt)">
+            <td colspan="2" style="font-weight:700;color:var(--primary)">PATRIMONIO NETO</td>
+            <td class="text-right" style="font-weight:700;font-size:16px;color:var(--primary)" id="patrimonio-neto">—</td>
+          </tr>
+        </tfoot>
+      </table>
+      <button class="add-row-btn" onclick="addRow('extra-pasivos','liab')">+ Añadir pasivo</button>
+
+      <hr class="divider">
+      <h3>Distribución del Activo</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Inmobiliario</span><span id="pct-inmob" class="text-green">—</span></div>
+          <div class="progress-bar"><div class="progress-fill fill-blue" id="bar-inmob" style="width:0%"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Financiero</span><span id="pct-fin">—</span></div>
+          <div class="progress-bar"><div class="progress-fill fill-green" id="bar-fin" style="width:0%"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Liquidez</span><span id="pct-liq">—</span></div>
+          <div class="progress-bar"><div class="progress-fill fill-amber" id="bar-liq" style="width:0%"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Otros</span><span id="pct-otros">—</span></div>
+          <div class="progress-bar"><div class="progress-fill" id="bar-otros" style="width:0%;background:var(--muted)"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     TAB 3 · RATIOS
+══════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-ratios">
+  <h2>Ratios Patrimoniales Clave</h2>
+
+  <div class="grid-2" style="margin-bottom:20px">
+    <div class="card">
+      <h3>Endeudamiento y Solvencia</h3>
+      <table class="data-table">
+        <thead><tr><th>Ratio</th><th>Valor</th><th>Objetivo</th><th>Estado</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Tasa de Esfuerzo Oficial</strong><br><span class="text-muted" style="font-size:11px">Cuotas hipotecas / Ingresos</span></td>
+            <td><strong id="rv-te-oficial">—</strong></td><td class="text-muted">&lt; 35%</td>
+            <td><span class="badge badge-green" id="rb-te-oficial">—</span></td>
+          </tr>
+          <tr>
+            <td><strong>Tasa de Esfuerzo Real</strong><br><span class="text-muted" style="font-size:11px">Cuotas + gastos activos / Ingresos</span></td>
+            <td><strong id="rv-te-real">—</strong></td><td class="text-muted">&lt; 40%</td>
+            <td><span class="badge badge-green" id="rb-te-real">—</span></td>
+          </tr>
+          <tr>
+            <td><strong>Ratio de Endeudamiento</strong><br><span class="text-muted" style="font-size:11px">Pasivos / Activos totales</span></td>
+            <td><strong id="rv-endeud">—</strong></td><td class="text-muted">&lt; 70%</td>
+            <td><span class="badge badge-green" id="rb-endeud">—</span></td>
+          </tr>
+          <tr>
+            <td><strong>Apalancamiento</strong><br><span class="text-muted" style="font-size:11px">Activos / Patrimonio neto</span></td>
+            <td><strong id="rv-apalancamiento">—</strong></td><td class="text-muted">&lt; 3x</td>
+            <td><span class="badge badge-green" id="rb-apalancamiento">—</span></td>
+          </tr>
+          <tr>
+            <td><strong>Deuda / Ingresos anuales</strong><br><span class="text-muted" style="font-size:11px">Pasivos / (Ingresos × 12)</span></td>
+            <td><strong id="rv-deuda-inc">—</strong></td><td class="text-muted">&lt; 5x</td>
+            <td><span class="badge badge-green" id="rb-deuda-inc">—</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>Liquidez, Rentabilidad y Ahorro</h3>
+      <table class="data-table">
+        <thead><tr><th>Ratio</th><th>Valor</th><th>Objetivo</th><th>Estado</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Colchón de liquidez</strong><br><span class="text-muted" style="font-size:11px">Activos líquidos / Gasto mensual</span></td>
+            <td><strong id="rv-colchon">—</strong></td><td class="text-muted">&gt; 6x</td>
+            <td><span class="badge badge-green" id="rb-colchon">—</span></td>
+          </tr>
+          <tr>
+            <td><strong>Tasa de ahorro</strong><br><span class="text-muted" style="font-size:11px">Ahorro / Ingresos</span></td>
+            <td><strong id="rv-ta">—</strong></td><td class="text-muted">&gt; 20%</td>
+            <td><span class="badge badge-green" id="rb-ta">—</span></td>
+          </tr>
+          <tr>
+            <td><strong>Yield bruto inmobiliario</strong><br><span class="text-muted" style="font-size:11px">Rentas anuales / Valor inmuebles</span></td>
+            <td><strong id="rv-yield">—</strong></td><td class="text-muted">&gt; 4-5%</td>
+            <td><span class="badge badge-amber" id="rb-yield">—</span></td>
+          </tr>
+          <tr>
+            <td><strong>Diversificación inmobiliaria</strong><br><span class="text-muted" style="font-size:11px">Activos inmob. / Total activos</span></td>
+            <td><strong id="rv-div">—</strong></td><td class="text-muted">&lt; 60%</td>
+            <td><span class="badge badge-amber" id="rb-div">—</span></td>
+          </tr>
+          <tr>
+            <td><strong>Activos financ. / Patrimonio neto</strong><br><span class="text-muted" style="font-size:11px">Fondos + liquidez / Neto</span></td>
+            <td><strong id="rv-fin-pat">—</strong></td><td class="text-muted">&gt; 30%</td>
+            <td><span class="badge badge-amber" id="rb-fin-pat">—</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Visualización de Ratios vs. Objetivos</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px;margin-top:10px">
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Tasa de Esfuerzo Oficial</span><strong id="rvb-te-oficial">—</strong></div>
+        <div class="progress-bar" style="height:10px"><div class="progress-fill" id="bar-te-oficial" style="width:0%"></div></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px" id="rvb-te-oficial-note">—</div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Tasa de Esfuerzo Real</span><strong id="rvb-te-real">—</strong></div>
+        <div class="progress-bar" style="height:10px"><div class="progress-fill" id="bar-te-real" style="width:0%"></div></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px" id="rvb-te-real-note">—</div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Ratio Endeudamiento</span><strong id="rvb-endeud">—</strong></div>
+        <div class="progress-bar" style="height:10px"><div class="progress-fill" id="bar-endeud" style="width:0%"></div></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px" id="rvb-endeud-note">—</div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Diversificación</span><strong id="rvb-div">—</strong></div>
+        <div class="progress-bar" style="height:10px"><div class="progress-fill" id="bar-div" style="width:0%"></div></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px" id="rvb-div-note">—</div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Tasa de Ahorro</span><strong id="rvb-ta">—</strong></div>
+        <div class="progress-bar" style="height:10px"><div class="progress-fill" id="bar-ta" style="width:0%"></div></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px" id="rvb-ta-note">—</div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>Yield bruto inmob.</span><strong id="rvb-yield">—</strong></div>
+        <div class="progress-bar" style="height:10px"><div class="progress-fill" id="bar-yield" style="width:0%"></div></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px" id="rvb-yield-note">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px;background:var(--primary);color:#fff">
+    <h3 style="color:rgba(255,255,255,.6)">Observaciones del Gestor</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px">
+      <div style="background:rgba(255,255,255,.07);border-radius:8px;padding:14px">
+        <div style="font-weight:600;margin-bottom:6px">Fortalezas</div>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px;color:rgba(255,255,255,.75)">
+          <li>✓ Solvencia alta — deuda muy por debajo del límite</li>
+          <li>✓ Colchón de liquidez excepcional (&gt;4 años de gastos)</li>
+          <li>✓ Tasa de ahorro elevada (~37%)</li>
+          <li>✓ Múltiples fuentes de ingreso (salario + rentas)</li>
+        </ul>
+      </div>
+      <div style="background:rgba(255,255,255,.07);border-radius:8px;padding:14px">
+        <div style="font-weight:600;margin-bottom:6px">Áreas de mejora</div>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:6px;font-size:13px;color:rgba(255,255,255,.75)">
+          <li>⚡ Alta concentración inmobiliaria (&gt;70%) — diversificar</li>
+          <li>⚡ Plaza Jaime I sin alquilar → 252€/mes en pérdida</li>
+          <li>⚡ Yield inmobiliario bajo vs. media mercado</li>
+          <li>⚡ 122K€ en liquidez — optimizar parte en activos productivos</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     TAB 4 · SIMULADOR
+══════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-simulador">
+  <div class="section-header">
+    <h2>Simulador de Escenarios</h2>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-primary" style="padding:8px 16px;font-size:12px" onclick="freezeScenario()">❄ Congelar posición actual</button>
+      <button class="btn" style="padding:8px 16px;font-size:12px;background:var(--red-lt);color:var(--red)" onclick="clearFrozen()">✕ Limpiar congelado</button>
+      <button class="btn btn-export" style="padding:8px 16px;font-size:12px" onclick="exportSimJpg()">↓ Exportar JPG</button>
+    </div>
+  </div>
+
+  <div class="info-box" id="sim-info-box">
+    Pulsa <strong>"❄ Congelar posición"</strong> para capturar el escenario base. El escenario simulado se actualiza automáticamente al editar valores en la pestaña <strong>Posición</strong>.
+  </div>
+
+  <div id="sim-no-frozen" class="card" style="text-align:center;padding:40px;color:var(--muted);font-size:13px">
+    No hay escenario base congelado. Configura tu posición en <strong>Posición</strong> y pulsa <strong>"❄ Congelar"</strong>.
+  </div>
+
+  <div id="sim-content" style="display:none">
+    <!-- CABECERA COLUMNAS -->
+    <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr .7fr;gap:0;margin-bottom:4px;padding:0 2px" id="sim-capture">
+      <div></div>
+      <div class="sim-col-header sim-frozen">Escenario Base<br><span style="font-weight:400;font-size:10px" id="sim-frozen-date">—</span></div>
+      <div class="sim-col-header sim-live" style="margin-left:8px">Escenario Simulado<br><span style="font-weight:400;font-size:10px">En tiempo real</span></div>
+      <div class="sim-col-header" style="background:var(--bg);color:var(--muted);margin-left:8px">Diferencia</div>
+    </div>
+
+    <!-- BLOQUE INGRESOS -->
+    <div class="card sim-block">
+      <h3>Ingresos</h3>
+      <table class="sim-table">
+        <thead><tr><th>Concepto</th><th class="text-right">Base</th><th class="text-right">Simulado</th><th class="text-right">Δ</th></tr></thead>
+        <tbody id="sim-tbody-inc"></tbody>
+        <tr class="sim-total"><td><strong>Total Ingresos</strong></td><td class="text-right" id="sim-tot-inc-base">—</td><td class="text-right" id="sim-tot-inc-live">—</td><td class="text-right" id="sim-tot-inc-diff">—</td></tr>
+      </table>
+    </div>
+
+    <!-- BLOQUE GASTOS -->
+    <div class="card sim-block">
+      <h3>Gastos</h3>
+      <table class="sim-table">
+        <thead><tr><th>Concepto</th><th class="text-right">Base</th><th class="text-right">Simulado</th><th class="text-right">Δ</th></tr></thead>
+        <tbody id="sim-tbody-exp"></tbody>
+        <tr class="sim-total"><td><strong>Total Gastos</strong></td><td class="text-right" id="sim-tot-exp-base">—</td><td class="text-right" id="sim-tot-exp-live">—</td><td class="text-right" id="sim-tot-exp-diff">—</td></tr>
+        <tr class="sim-total" style="background:var(--green-lt)"><td><strong>Ahorro Neto</strong></td><td class="text-right text-green" id="sim-ahorro-base">—</td><td class="text-right text-green" id="sim-ahorro-live">—</td><td class="text-right" id="sim-ahorro-diff">—</td></tr>
+      </table>
+    </div>
+
+    <!-- BLOQUE ACTIVOS -->
+    <div class="card sim-block">
+      <h3>Activos</h3>
+      <table class="sim-table">
+        <thead><tr><th>Concepto</th><th class="text-right">Base</th><th class="text-right">Simulado</th><th class="text-right">Δ</th></tr></thead>
+        <tbody id="sim-tbody-ass"></tbody>
+        <tr class="sim-total"><td><strong>Total Activos</strong></td><td class="text-right" id="sim-tot-ass-base">—</td><td class="text-right" id="sim-tot-ass-live">—</td><td class="text-right" id="sim-tot-ass-diff">—</td></tr>
+      </table>
+    </div>
+
+    <!-- BLOQUE PASIVOS -->
+    <div class="card sim-block">
+      <h3>Pasivos</h3>
+      <table class="sim-table">
+        <thead><tr><th>Concepto</th><th class="text-right">Base</th><th class="text-right">Simulado</th><th class="text-right">Δ</th></tr></thead>
+        <tbody id="sim-tbody-liab"></tbody>
+        <tr class="sim-total"><td><strong>Total Pasivos</strong></td><td class="text-right" id="sim-tot-liab-base">—</td><td class="text-right" id="sim-tot-liab-live">—</td><td class="text-right" id="sim-tot-liab-diff">—</td></tr>
+        <tr class="sim-total" style="background:var(--accent-lt)"><td><strong>Patrimonio Neto</strong></td><td class="text-right" id="sim-neto-base">—</td><td class="text-right" id="sim-neto-live">—</td><td class="text-right" id="sim-neto-diff">—</td></tr>
+      </table>
+    </div>
+
+    <!-- BLOQUE RATIOS -->
+    <div class="card sim-block">
+      <h3>Ratios Clave</h3>
+      <table class="sim-table">
+        <thead><tr><th>Ratio</th><th class="text-right">Base</th><th class="text-right">Simulado</th><th class="text-right">Δ</th></tr></thead>
+        <tbody>
+          <tr><td>Tasa de Esfuerzo Oficial</td><td class="text-right" id="sim-r-te-base">—</td><td class="text-right" id="sim-r-te-live">—</td><td class="text-right" id="sim-r-te-diff">—</td></tr>
+          <tr><td>Tasa de Esfuerzo Real</td><td class="text-right" id="sim-r-ter-base">—</td><td class="text-right" id="sim-r-ter-live">—</td><td class="text-right" id="sim-r-ter-diff">—</td></tr>
+          <tr><td>Ratio de Endeudamiento</td><td class="text-right" id="sim-r-end-base">—</td><td class="text-right" id="sim-r-end-live">—</td><td class="text-right" id="sim-r-end-diff">—</td></tr>
+          <tr><td>Patrimonio Neto</td><td class="text-right" id="sim-r-nw-base">—</td><td class="text-right" id="sim-r-nw-live">—</td><td class="text-right" id="sim-r-nw-diff">—</td></tr>
+          <tr><td>Tasa de Ahorro</td><td class="text-right" id="sim-r-ta-base">—</td><td class="text-right" id="sim-r-ta-live">—</td><td class="text-right" id="sim-r-ta-diff">—</td></tr>
+          <tr><td>Colchón de Liquidez</td><td class="text-right" id="sim-r-col-base">—</td><td class="text-right" id="sim-r-col-live">—</td><td class="text-right" id="sim-r-col-diff">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     TAB 5 · HISTÓRICO
+══════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-historico">
+  <div class="section-header">
+    <h2>Histórico Patrimonial</h2>
+    <label class="btn btn-primary" style="cursor:pointer;padding:9px 18px;font-size:13px">
+      📂 Cargar reportes JSON
+      <input type="file" id="hist-file-input" accept=".json" multiple style="display:none" onchange="loadHistorico(event)">
+    </label>
+  </div>
+
+  <div class="info-box">
+    Carga los ficheros JSON exportados desde el botón <strong>"↓ Exportar posición"</strong> para ver la evolución mensual.
+    Los ficheros se guardan en la carpeta <strong>reportes/</strong>. Puedes cargar varios a la vez.
+  </div>
+
+  <div id="hist-empty" class="card hist-empty">
+    No hay datos históricos cargados.<br>
+    <span style="font-size:12px;margin-top:6px;display:block">Exporta tu posición mes a mes y cárgala aquí para analizar la evolución.</span>
+  </div>
+
+  <div id="hist-loaded" style="display:none">
+    <!-- Tabla resumen -->
+    <div class="card" style="margin-bottom:20px">
+      <h3>Evolución de Posiciones</h3>
+      <div class="hist-table-wrap">
+        <table class="data-table" id="hist-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th class="text-right">Patrimonio Neto</th>
+              <th class="text-right">Activos</th>
+              <th class="text-right">Pasivos</th>
+              <th class="text-right">Ingresos</th>
+              <th class="text-right">Gastos</th>
+              <th class="text-right">Ahorro</th>
+              <th class="text-right">T. Esfuerzo</th>
+              <th class="text-right">Endeud.</th>
+              <th class="text-right">T. Ahorro</th>
+            </tr>
+          </thead>
+          <tbody id="hist-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Gráficas -->
+    <div class="grid-2">
+      <div class="card">
+        <h3>Patrimonio Neto &amp; Activos</h3>
+        <div class="chart-wrap" style="height:200px"><canvas id="chartHistBalance"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Flujo de Caja Mensual</h3>
+        <div class="chart-wrap" style="height:200px"><canvas id="chartHistFlujo"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Ratios de Endeudamiento</h3>
+        <div class="chart-wrap" style="height:200px"><canvas id="chartHistRatios"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Tasa de Ahorro &amp; Esfuerzo</h3>
+        <div class="chart-wrap" style="height:200px"><canvas id="chartHistAhorro"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+/* ════════════════════════════════════════════
+   DATOS BASE (valores originales del Excel)
+════════════════════════════════════════════ */
+const BASE = {
+  salario: 2030, extras: 338.33, bonus: 833.33,
+  alqMAD: 270, alqVAL: 550, alqPlaza: 0, otrosInc: 850,
+  cuotas: 839.10, gastosActivos: 374.67, gastosVida: 1210.17, fondoInv: 100,
+  garaje12: 25000, garaje100: 22000, garaje189: 22000,
+  palacio: 150000, casa2: 130000, plaza: 86000,
+  fondos: 95000, santander: 27000, otros: 29000,
+  hipPalacio: 62000, hipCasa2: 54750, hipPlaza: 38000, hipGarajes: 13000,
+};
+
+/* ════════════════════════════════════════════
+   TABS
+════════════════════════════════════════════ */
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+  if (id === 'resumen') { initResumenCharts(); recalcAll(); }
+  if (id === 'posicion') initFlujoChart();
+}
+
+/* ════════════════════════════════════════════
+   FECHA
+════════════════════════════════════════════ */
+const now = new Date();
+document.getElementById('fechaActual').textContent =
+  now.toLocaleDateString('es-ES', { year:'numeric', month:'long', day:'numeric' });
+
+/* ════════════════════════════════════════════
+   LECTURA DE INPUTS
+════════════════════════════════════════════ */
+function g(id) { return parseFloat(document.getElementById(id).value) || 0; }
+
+function readAllInputs() {
+  const inclBonus = document.getElementById('inclBonus').checked;
+  const inc = {
+    salario:   g('inp-salario'),
+    extras:    g('inp-extras'),
+    bonus:     inclBonus ? g('inp-bonus') : 0,
+    alqMAD:    g('inp-alqMAD'),
+    alqVAL:    g('inp-alqVAL'),
+    alqPlaza:  g('inp-alqPlaza'),
+    otrosInc:  g('inp-otrosInc'),
+  };
+  const exp = {
+    cuotas:        g('inp-cuotas'),
+    gastosActivos: g('inp-gastosActivos'),
+    gastosVida:    g('inp-gastosVida'),
+    fondoInv:      g('inp-fondoInv'),
+  };
+  const assets = {
+    garaje12:  g('inp-garaje12'),  garaje100: g('inp-garaje100'), garaje189: g('inp-garaje189'),
+    palacio:   g('inp-palacio'),   casa2:     g('inp-casa2'),     plaza:     g('inp-plaza'),
+    fondos:    g('inp-fondos'),    santander: g('inp-santander'), otros:     g('inp-otros'),
+  };
+  const liab = {
+    hipPalacio: g('inp-hipPalacio'), hipCasa2: g('inp-hipCasa2'),
+    hipPlaza:   g('inp-hipPlaza'),   hipGarajes: g('inp-hipGarajes'),
+  };
+
+  const extraInc  = getExtraRows('inc').reduce((a,r)=>a+r.val,0);
+  const extraExp  = getExtraRows('exp').reduce((a,r)=>a+r.val,0);
+  const extraAss  = getExtraRows('asset').reduce((a,r)=>a+r.val,0);
+  const extraLiab = getExtraRows('liab').reduce((a,r)=>a+r.val,0);
+
+  const totalInc  = Object.values(inc).reduce((a,b)=>a+b,0) + extraInc;
+  const totalExp  = Object.values(exp).reduce((a,b)=>a+b,0) + extraExp;
+  const savings   = totalInc - totalExp;
+  const totalAss  = Object.values(assets).reduce((a,b)=>a+b,0) + extraAss;
+  const totalLiab = Object.values(liab).reduce((a,b)=>a+b,0) + extraLiab;
+  const netWorth  = totalAss - totalLiab;
+
+  const inmob    = assets.garaje12 + assets.garaje100 + assets.garaje189 + assets.palacio + assets.casa2 + assets.plaza;
+  const fin      = assets.fondos;
+  const liq      = assets.santander;
+  const otrosAss = assets.otros;
+  const rentasA  = (inc.alqMAD + inc.alqVAL + inc.alqPlaza + inc.otrosInc) * 12;
+  const incBase  = inc.salario + inc.extras + inc.alqMAD + inc.alqVAL + inc.alqPlaza + inc.otrosInc; // sin bonus para esfuerzo
+
+  return { inc, exp, assets, liab, totalInc, totalExp, savings, totalAss, totalLiab, netWorth, inmob, fin, liq, otrosAss, rentasA, incBase, inclBonus };
+}
+
+/* ════════════════════════════════════════════
+   RECALC ALL — actualiza toda la UI
+════════════════════════════════════════════ */
+function recalcAll() {
+  const D = readAllInputs();
+  const { totalInc, totalExp, savings, totalAss, totalLiab, netWorth, inmob, fin, liq, otrosAss, rentasA, incBase } = D;
+
+  // ── Bonus row visibility
+  document.getElementById('bonus-row').style.display = D.inclBonus ? '' : 'none';
+
+  // ── Flujo de Caja totals
+  setText('total-ingresos-val', fmtEur(totalInc) + ' €');
+  setText('total-gastos-val',   fmtEur(totalExp) + ' €');
+  setText('ahorro-neto-val',    fmtEur(savings)  + ' €');
+
+  // ── Balance totals
+  setText('total-activos',       fmtEur(totalAss)  + ' €');
+  setText('total-activos-label', fmtEur(totalAss)  + ' €');
+  setText('total-pasivos',       fmtEur(totalLiab) + ' €');
+  setText('total-pasivos-label', fmtEur(totalLiab) + ' €');
+  setText('patrimonio-neto',     fmtEur(netWorth)  + ' €');
+
+  // ── Asset distribution bars
+  const setPct = (idPct, idBar, v) => {
+    const p = totalAss > 0 ? (v/totalAss*100) : 0;
+    setText(idPct, p.toFixed(1) + '%');
+    document.getElementById(idBar).style.width = Math.min(p,100) + '%';
+  };
+  setPct('pct-inmob', 'bar-inmob', inmob);
+  setPct('pct-fin',   'bar-fin',   fin);
+  setPct('pct-liq',   'bar-liq',   liq);
+  setPct('pct-otros', 'bar-otros', otrosAss);
+
+  // ── Calcular ratios
+  const te        = incBase > 0 ? (D.exp.cuotas / incBase) * 100 : 0;
+  const teReal    = incBase > 0 ? ((D.exp.cuotas + D.exp.gastosActivos) / incBase) * 100 : 0;
+  const endeud    = totalAss > 0 ? (totalLiab / totalAss) * 100 : 0;
+  const apalancam = netWorth > 0 ? totalAss / netWorth : 0;
+  const deudaInc  = totalInc > 0 ? totalLiab / (totalInc * 12) : 0;
+  const colchon   = totalExp > 0 ? (fin + liq) / totalExp : 0;
+  const ta        = totalInc > 0 ? (savings / totalInc) * 100 : 0;
+  const yieldB    = inmob > 0 ? (rentasA / inmob) * 100 : 0;
+  const divInmob  = totalAss > 0 ? (inmob / totalAss) * 100 : 0;
+  const finPat    = netWorth > 0 ? ((fin + liq) / netWorth) * 100 : 0;
+
+  // ── KPIs (Resumen)
+  setText('kpi-nw',       fmtEur(netWorth) + ' €');
+  setText('kpi-income',   fmtEur(totalInc) + ' €');
+  setText('kpi-expenses', fmtEur(totalExp) + ' €');
+  setText('kpi-savings',  fmtEur(savings)  + ' €');
+  setText('kpi-savings-pct', 'Tasa de ahorro: ' + ta.toFixed(1) + '%');
+
+  // Resumen quick ratios
+  const setRatio = (valId, barId, badgeId, val, limit, higherBetter) => {
+    setText(valId, val.toFixed(1) + '%');
+    const pct = higherBetter ? Math.min(val/limit*100,100) : Math.min(val/limit*100,100);
+    document.getElementById(barId).style.width = pct + '%';
+    const ok = higherBetter ? val >= limit : val <= limit;
+    const el = document.getElementById(barId);
+    el.className = 'progress-fill ' + (ok ? 'fill-green' : val <= limit*0.9 ? 'fill-amber' : 'fill-red');
+    if (badgeId) {
+      const b = document.getElementById(badgeId);
+      b.textContent = ok ? 'OK' : 'Revisar';
+      b.className = 'badge ' + (ok ? 'badge-green' : 'badge-red');
+    }
+  };
+  setRatio('r1-val','r1-bar','r1-badge', te, 35, false);
+  setRatio('r2-val','r2-bar','r2-badge', endeud, 70, false);
+  // Colchon is in "x" not "%"
+  setText('r3-val', colchon.toFixed(1) + 'x');
+  document.getElementById('r3-bar').style.width = Math.min(colchon/6*100,100) + '%';
+  document.getElementById('r3-bar').className = 'progress-fill ' + (colchon >= 6 ? 'fill-green' : 'fill-amber');
+  const r3b = document.getElementById('r3-badge');
+  r3b.textContent = colchon >= 6 ? 'OK' : 'Bajo';
+  r3b.className = 'badge ' + (colchon >= 6 ? 'badge-green' : 'badge-red');
+
+  // ── Ratios tab (detailed)
+  const setRV = (id, val, unit) => setText(id, val.toFixed(unit==='x'?2:1) + unit);
+  const setBadge = (id, ok, okTxt, koTxt) => {
+    const el = document.getElementById(id);
+    el.textContent = ok ? okTxt : koTxt;
+    el.className = 'badge ' + (ok ? 'badge-green' : 'badge-' + (ok===null?'amber':'red'));
+  };
+
+  setRV('rv-te-oficial', te, '%'); setBadge('rb-te-oficial', te<=35, 'Óptimo', te<=40?'Atención':'Alto');
+  setRV('rv-te-real', teReal, '%'); setBadge('rb-te-real', teReal<=40, 'Correcto', 'Alto');
+  setRV('rv-endeud', endeud, '%'); setBadge('rb-endeud', endeud<=70, 'Solvente', 'Elevado');
+  setRV('rv-apalancamiento', apalancam, 'x'); setBadge('rb-apalancamiento', apalancam<=3, 'Correcto', 'Alto');
+  setRV('rv-deuda-inc', deudaInc, 'x'); setBadge('rb-deuda-inc', deudaInc<=5, 'Correcto', 'Alto');
+  setRV('rv-colchon', colchon, 'x'); setBadge('rb-colchon', colchon>=6, 'Excelente', 'Bajo');
+  setRV('rv-ta', ta, '%'); setBadge('rb-ta', ta>=20, 'Alto', 'Bajo');
+  setRV('rv-yield', yieldB, '%');
+  document.getElementById('rb-yield').textContent = yieldB>=4 ? 'Correcto' : 'Mejorable';
+  document.getElementById('rb-yield').className = 'badge ' + (yieldB>=4 ? 'badge-green' : 'badge-amber');
+  setRV('rv-div', divInmob, '%');
+  document.getElementById('rb-div').textContent = divInmob<=60 ? 'Diversificado' : 'Concentrado';
+  document.getElementById('rb-div').className = 'badge ' + (divInmob<=60 ? 'badge-green' : 'badge-amber');
+  setRV('rv-fin-pat', finPat, '%');
+  document.getElementById('rb-fin-pat').textContent = finPat>=30 ? 'Correcto' : 'Bajo';
+  document.getElementById('rb-fin-pat').className = 'badge ' + (finPat>=30 ? 'badge-green' : 'badge-amber');
+
+  // ── Visualization bars (Ratios tab)
+  const setVBar = (lblId, barId, noteId, val, limit, higherBetter, unit) => {
+    setText(lblId, val.toFixed(1) + unit + ' / ' + limit + unit + (higherBetter ? ' mín.' : ' máx.'));
+    const pct = Math.min(val / limit * 100, 100);
+    const bar = document.getElementById(barId);
+    bar.style.width = pct + '%';
+    const ok = higherBetter ? val >= limit : val <= limit;
+    bar.className = 'progress-fill ' + (ok ? 'fill-green' : (higherBetter ? val >= limit*0.7 : val <= limit*1.15) ? 'fill-amber' : 'fill-red');
+    if (noteId) setText(noteId, pct.toFixed(0) + '% del límite');
+  };
+  setVBar('rvb-te-oficial','bar-te-oficial','rvb-te-oficial-note', te, 35, false, '%');
+  setVBar('rvb-te-real','bar-te-real','rvb-te-real-note', teReal, 40, false, '%');
+  setVBar('rvb-endeud','bar-endeud','rvb-endeud-note', endeud, 70, false, '%');
+  setVBar('rvb-div','bar-div','rvb-div-note', divInmob, 60, false, '%');
+  setVBar('rvb-ta','bar-ta','rvb-ta-note', ta, 20, true, '%');
+  setVBar('rvb-yield','bar-yield','rvb-yield-note', yieldB, 4, true, '%');
+
+  // ── Update charts
+  updateResumenCharts(D);
+  updateFlujoChart(D);
+  // ── Update simulador if frozen
+  if (frozenSnapshot) renderSimulador();
+}
+
+/* ════════════════════════════════════════════
+   RESET A DATOS BASE (Excel)
+════════════════════════════════════════════ */
+function resetToBase() {
+  const keys = Object.keys(BASE);
+  keys.forEach(k => {
+    const el = document.getElementById('inp-' + k);
+    if (el) el.value = BASE[k];
+  });
+  document.getElementById('inclBonus').checked = false;
+  recalcAll();
+}
+
+/* ════════════════════════════════════════════
+   CHARTS (Resumen)
+════════════════════════════════════════════ */
+let chartAssets = null, chartCashflow = null, chartFlujo = null;
+let chartHistBalance = null, chartHistFlujo = null, chartHistRatios = null, chartHistAhorro = null;
+
+function initResumenCharts() {
+  const D = readAllInputs();
+  if (!chartAssets) {
+    chartAssets = new Chart(document.getElementById('chartAssets'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Inmobiliario', 'Fondos', 'Liquidez', 'Otros'],
+        datasets: [{ data: [D.inmob, D.fin, D.liq, D.otrosAss], backgroundColor: ['#3b6fce','#2a9d8f','#f4a261','#a8b0c2'], borderWidth: 0, hoverOffset: 4 }]
+      },
+      options: { cutout: '72%', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'right', labels: { font: { family:'Inter', size:11 }, padding:12 } },
+          tooltip: { callbacks: { label: ctx => ' ' + fmtEur(ctx.parsed) + ' €' } } } }
+    });
+  }
+  if (!chartCashflow) {
+    const sal = D.inc.salario + D.inc.extras;
+    const alq = D.inc.alqMAD + D.inc.alqVAL + D.inc.alqPlaza + D.inc.otrosInc;
+    chartCashflow = new Chart(document.getElementById('chartCashflow'), {
+      type: 'bar',
+      data: {
+        labels: ['Salario', 'Alquileres', 'Cuotas', 'Vida', 'Act.', 'Ahorro'],
+        datasets: [{ data: [sal, alq, -D.exp.cuotas, -D.exp.gastosVida, -D.exp.gastosActivos, D.savings],
+          backgroundColor: d => d.raw > 0 ? '#2a9d8f' : '#e63946', borderRadius: 6, borderSkipped: false }]
+      },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + fmtEur(Math.abs(ctx.parsed.y)) + ' €' } } },
+        scales: { x: { grid: { display: false }, ticks: { font: { family:'Inter', size:10 } } },
+          y: { grid: { color: '#f0f0f0' }, ticks: { font: { family:'Inter', size:10 }, callback: v => (v>=0?'+':'') + fmtEur(v) + '€' } } } }
+    });
+  }
+}
+
+function updateResumenCharts(D) {
+  if (chartAssets) {
+    chartAssets.data.datasets[0].data = [D.inmob, D.fin, D.liq, D.otrosAss];
+    chartAssets.update();
+  }
+  if (chartCashflow) {
+    const sal = D.inc.salario + D.inc.extras + (D.inclBonus ? D.inc.bonus : 0);
+    const alq = D.inc.alqMAD + D.inc.alqVAL + D.inc.alqPlaza + D.inc.otrosInc;
+    chartCashflow.data.datasets[0].data = [sal, alq, -D.exp.cuotas, -D.exp.gastosVida, -D.exp.gastosActivos, D.savings];
+    chartCashflow.update();
+  }
+}
+
+function initFlujoChart() {
+  if (chartFlujo) return;
+  const D = readAllInputs();
+  chartFlujo = new Chart(document.getElementById('chartFlujo'), {
+    type: 'bar',
+    data: {
+      labels: ['Salario', 'Extras', 'Alq. MAD', 'Alq. VAL', 'Otros activos', 'Cuotas', 'Gtos. activos', 'Vida', 'Fondo inv.'],
+      datasets: [{ label: 'Flujo',
+        data: [D.inc.salario, D.inc.extras, D.inc.alqMAD, D.inc.alqVAL, D.inc.otrosInc, -D.exp.cuotas, -D.exp.gastosActivos, -D.exp.gastosVida, -D.exp.fondoInv],
+        backgroundColor: d => d.raw >= 0 ? 'rgba(42,157,143,.75)' : 'rgba(230,57,70,.75)',
+        borderColor: d => d.raw >= 0 ? '#2a9d8f' : '#e63946', borderWidth: 1, borderRadius: 5 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { grid: { display: false }, ticks: { font: { family:'Inter', size:10 } } },
+        y: { grid: { color: '#f0f0f0' }, ticks: { font: { family:'Inter', size:10 }, callback: v => fmtEur(v) + '€' } } } }
+  });
+}
+
+function updateFlujoChart(D) {
+  if (!chartFlujo) return;
+  chartFlujo.data.datasets[0].data = [D.inc.salario, D.inc.extras, D.inc.alqMAD, D.inc.alqVAL, D.inc.otrosInc, -D.exp.cuotas, -D.exp.gastosActivos, -D.exp.gastosVida, -D.exp.fondoInv];
+  chartFlujo.update();
+}
+
+/* ════════════════════════════════════════════
+   EXPORTAR POSICIÓN (JSON → descarga)
+════════════════════════════════════════════ */
+function exportSnapshot() {
+  const D = readAllInputs();
+  const fecha = new Date().toISOString().split('T')[0];
+
+  const incBase = D.inc.salario + D.inc.extras + D.inc.alqMAD + D.inc.alqVAL + D.inc.alqPlaza + D.inc.otrosInc;
+  const te     = incBase > 0 ? (D.exp.cuotas / incBase) * 100 : 0;
+  const teReal = incBase > 0 ? ((D.exp.cuotas + D.exp.gastosActivos) / incBase) * 100 : 0;
+  const endeud = D.totalAss > 0 ? (D.totalLiab / D.totalAss) * 100 : 0;
+  const colchon = D.totalExp > 0 ? (D.fin + D.liq) / D.totalExp : 0;
+  const ta     = D.totalInc > 0 ? (D.savings / D.totalInc) * 100 : 0;
+  const yieldB = D.inmob > 0 ? (D.rentasA / D.inmob) * 100 : 0;
+  const divInmob = D.totalAss > 0 ? (D.inmob / D.totalAss) * 100 : 0;
+
+  const snapshot = {
+    fecha,
+    version: '1.0',
+    // Flujo
+    totalIngresos: round2(D.totalInc),
+    totalGastos: round2(D.totalExp),
+    ahorroNeto: round2(D.savings),
+    incluyeBonus: D.inclBonus,
+    // Balance
+    totalActivos: D.totalAss,
+    totalPasivos: D.totalLiab,
+    patrimonioNeto: D.netWorth,
+    // Ratios
+    tasaEsfuerzoOficial: round2(te),
+    tasaEsfuerzoReal: round2(teReal),
+    ratioEndeudamiento: round2(endeud),
+    colchonLiquidez: round2(colchon),
+    tasaAhorro: round2(ta),
+    yieldInmobiliario: round2(yieldB),
+    divInmobiliaria: round2(divInmob),
+    // Detalle ingresos
+    detalleIngresos: {
+      salario: D.inc.salario, extras: D.inc.extras, bonus: g('inp-bonus'),
+      alqMAD: D.inc.alqMAD, alqVAL: D.inc.alqVAL, alqPlaza: D.inc.alqPlaza, otrosInc: D.inc.otrosInc
+    },
+    // Detalle gastos
+    detalleGastos: {
+      cuotas: D.exp.cuotas, gastosActivos: D.exp.gastosActivos,
+      gastosVida: D.exp.gastosVida, fondoInv: D.exp.fondoInv
+    },
+    // Detalle activos
+    detalleActivos: {
+      garaje12: D.assets.garaje12, garaje100: D.assets.garaje100, garaje189: D.assets.garaje189,
+      palacio: D.assets.palacio, casa2: D.assets.casa2, plaza: D.assets.plaza,
+      fondos: D.assets.fondos, santander: D.assets.santander, otros: D.assets.otros
+    },
+    // Detalle pasivos
+    detallePasivos: {
+      hipPalacio: D.liab.hipPalacio, hipCasa2: D.liab.hipCasa2,
+      hipPlaza: D.liab.hipPlaza, hipGarajes: D.liab.hipGarajes
+    }
+  };
+
+  const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `reporte_${fecha}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ════════════════════════════════════════════
+   HISTÓRICO — carga y visualización
+════════════════════════════════════════════ */
+let histData = [];
+
+function loadHistorico(event) {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
+
+  const readers = files.map(f => new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => { try { res(JSON.parse(e.target.result)); } catch { rej(f.name); } };
+    r.readAsText(f);
+  }));
+
+  Promise.all(readers).then(data => {
+    // Merge con los ya cargados, evitar duplicados por fecha
+    const existingFechas = new Set(histData.map(d => d.fecha));
+    data.forEach(d => { if (!existingFechas.has(d.fecha)) { histData.push(d); existingFechas.add(d.fecha); } });
+    histData.sort((a,b) => a.fecha.localeCompare(b.fecha));
+    renderHistorico();
+  }).catch(name => alert('Error leyendo fichero: ' + name));
+}
+
+function renderHistorico() {
+  if (!histData.length) return;
+
+  document.getElementById('hist-empty').style.display = 'none';
+  document.getElementById('hist-loaded').style.display = '';
+
+  // Tabla
+  const tbody = document.getElementById('hist-tbody');
+  tbody.innerHTML = '';
+  histData.forEach((d, i) => {
+    const prev = i > 0 ? histData[i-1] : null;
+    const delta = (curr, prevV) => {
+      if (!prev) return '';
+      const diff = curr - prevV;
+      if (Math.abs(diff) < 1) return '';
+      return ` <span class="${diff>0?'hist-tag-pos':'hist-tag-neg'}">${diff>0?'▲':'▼'}${fmtEur(Math.abs(diff))}</span>`;
+    };
+    tbody.innerHTML += `<tr>
+      <td><strong>${d.fecha}</strong></td>
+      <td class="text-right text-green">${fmtEur(d.patrimonioNeto)} €${delta(d.patrimonioNeto, prev?.patrimonioNeto??d.patrimonioNeto)}</td>
+      <td class="text-right">${fmtEur(d.totalActivos)} €</td>
+      <td class="text-right">${fmtEur(d.totalPasivos)} €</td>
+      <td class="text-right">${fmtEur(d.totalIngresos)} €</td>
+      <td class="text-right">${fmtEur(d.totalGastos)} €</td>
+      <td class="text-right">${fmtEur(d.ahorroNeto)} €</td>
+      <td class="text-right">${d.tasaEsfuerzoOficial?.toFixed(1)}%</td>
+      <td class="text-right">${d.ratioEndeudamiento?.toFixed(1)}%</td>
+      <td class="text-right">${d.tasaAhorro?.toFixed(1)}%</td>
+    </tr>`;
+  });
+
+  const labels = histData.map(d => d.fecha);
+  const chartOpts = (extra) => ({
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { font: { family:'Inter', size:11 }, padding:10 } } },
+    scales: {
+      x: { grid: { display: false }, ticks: { font: { family:'Inter', size:10 } } },
+      y: { grid: { color: '#f0f0f0' }, ticks: { font: { family:'Inter', size:10 } } }
+    },
+    ...extra
+  });
+
+  // Chart 1: Patrimonio Neto + Activos
+  if (chartHistBalance) chartHistBalance.destroy();
+  chartHistBalance = new Chart(document.getElementById('chartHistBalance'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Patrimonio Neto', data: histData.map(d=>d.patrimonioNeto), borderColor:'#1a2c4e', backgroundColor:'rgba(26,44,78,.08)', tension:.3, fill:true, pointRadius:4 },
+        { label: 'Activos totales', data: histData.map(d=>d.totalActivos), borderColor:'#3b6fce', backgroundColor:'transparent', tension:.3, pointRadius:4, borderDash:[4,3] },
+      ]
+    },
+    options: chartOpts({ plugins: { legend: { position:'bottom', labels:{font:{family:'Inter',size:11},padding:10} }, tooltip: { callbacks: { label: ctx => ' ' + fmtEur(ctx.parsed.y) + ' €' } } } })
+  });
+
+  // Chart 2: Flujo de caja
+  if (chartHistFlujo) chartHistFlujo.destroy();
+  chartHistFlujo = new Chart(document.getElementById('chartHistFlujo'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Ingresos', data: histData.map(d=>d.totalIngresos), borderColor:'#2a9d8f', backgroundColor:'rgba(42,157,143,.07)', tension:.3, fill:true, pointRadius:4 },
+        { label: 'Gastos',   data: histData.map(d=>d.totalGastos),   borderColor:'#e63946', backgroundColor:'transparent', tension:.3, pointRadius:4 },
+        { label: 'Ahorro',   data: histData.map(d=>d.ahorroNeto),    borderColor:'#f4a261', backgroundColor:'transparent', tension:.3, pointRadius:4, borderDash:[3,3] },
+      ]
+    },
+    options: chartOpts({ plugins: { legend: { position:'bottom', labels:{font:{family:'Inter',size:11},padding:10} }, tooltip: { callbacks: { label: ctx => ' ' + fmtEur(ctx.parsed.y) + ' €' } } } })
+  });
+
+  // Chart 3: Ratios endeudamiento
+  if (chartHistRatios) chartHistRatios.destroy();
+  chartHistRatios = new Chart(document.getElementById('chartHistRatios'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Endeudamiento (%)', data: histData.map(d=>d.ratioEndeudamiento), borderColor:'#3b6fce', backgroundColor:'rgba(59,111,206,.07)', tension:.3, fill:true, pointRadius:4 },
+        { label: 'T. Esfuerzo Of. (%)', data: histData.map(d=>d.tasaEsfuerzoOficial), borderColor:'#f4a261', backgroundColor:'transparent', tension:.3, pointRadius:4 },
+      ]
+    },
+    options: chartOpts({ plugins: { legend: { position:'bottom', labels:{font:{family:'Inter',size:11},padding:10} }, tooltip: { callbacks: { label: ctx => ctx.parsed.y?.toFixed(1) + '%' } } } })
+  });
+
+  // Chart 4: Ahorro + esfuerzo
+  if (chartHistAhorro) chartHistAhorro.destroy();
+  chartHistAhorro = new Chart(document.getElementById('chartHistAhorro'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Tasa de Ahorro (%)', data: histData.map(d=>d.tasaAhorro), borderColor:'#2a9d8f', backgroundColor:'rgba(42,157,143,.07)', tension:.3, fill:true, pointRadius:4 },
+        { label: 'Yield Inmob. (%)',   data: histData.map(d=>d.yieldInmobiliario), borderColor:'#a8b0c2', backgroundColor:'transparent', tension:.3, pointRadius:4, borderDash:[3,3] },
+      ]
+    },
+    options: chartOpts({ plugins: { legend: { position:'bottom', labels:{font:{family:'Inter',size:11},padding:10} }, tooltip: { callbacks: { label: ctx => ctx.parsed.y?.toFixed(2) + '%' } } } })
+  });
+}
+
+/* ════════════════════════════════════════════
+   EXCEL (placeholder — futuro XLSX.js)
+════════════════════════════════════════════ */
+function handleFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  alert(`Fichero: ${file.name}\n\nIntegración directa con Excel requiere XLSX.js (próxima versión).\nUsa "↺ Restablecer datos Excel" para volver a los valores originales.`);
+}
+
+/* ════════════════════════════════════════════
+   AÑADIR FILA DINÁMICA
+════════════════════════════════════════════ */
+let rowCounter = 0;
+function addRow(tbodyId, type) {
+  const id = 'dyn_' + (++rowCounter);
+  const tbody = document.getElementById(tbodyId);
+  const tr = document.createElement('tr');
+  const isInc = type === 'inc', isExp = type === 'exp';
+  const colorClass = isInc ? 'inc' : (isExp ? 'exp' : '');
+  tr.dataset.rowId = id;
+
+  let typeColumn = '';
+  if (isExp) {
+    typeColumn = `<td>
+      <select data-row="${id}" data-field="category" style="border:none;background:transparent;font-family:inherit;font-size:11px;padding:2px 4px;color:var(--text);cursor:pointer">
+        <option value="Personal">Personal</option>
+        <option value="Activos / Propiedad">Activos / Propiedad</option>
+        <option value="Deuda">Deuda</option>
+        <option value="Ahorro / Inversión">Ahorro / Inversión</option>
+        <option value="Otro">Otro</option>
+      </select>
+    </td>`;
+  } else {
+    typeColumn = `<td><span class="text-muted" style="font-size:11px">${type==='inc'?'Ingreso':type==='asset'?'Activo':'Pasivo'}</span></td>`;
+  }
+
+  tr.innerHTML = `
+    <td><input type="text" placeholder="Concepto" data-row="${id}" data-field="label"
+      style="border:none;border-bottom:1px solid var(--border);background:transparent;font-family:inherit;font-size:13px;width:100%;padding:2px 4px;color:var(--text)"
+      oninput="recalcAll()"></td>
+    ${typeColumn}
+    <td class="text-right">
+      <input class="edit-input ${colorClass}" type="number" value="0" min="0" step="10"
+        data-row="${id}" data-type="${type}" oninput="recalcAll()"> <span class="inp-suffix">€</span>
+    </td>
+    <td><button class="del-row-btn" onclick="delRow('${id}','${tbodyId}')">×</button></td>`;
+  tbody.appendChild(tr);
+  tr.querySelector('input[type=text]').focus();
+}
+
+function delRow(id, tbodyId) {
+  const tr = document.querySelector(`[data-row-id="${id}"]`);
+  if (tr) tr.remove();
+  recalcAll();
+}
+
+function getExtraRows(type) {
+  const tbodyId = type==='inc'?'extra-ingresos':type==='exp'?'extra-gastos':type==='asset'?'extra-activos':'extra-pasivos';
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return [];
+  return Array.from(tbody.querySelectorAll('tr')).map(tr => {
+    const label = tr.querySelector('input[type=text]')?.value || 'Otro';
+    const val   = parseFloat(tr.querySelector('input[type=number]')?.value) || 0;
+    return { label, val };
+  });
+}
+
+/* ════════════════════════════════════════════
+   SIMULADOR — estado congelado
+════════════════════════════════════════════ */
+let frozenSnapshot = null;
+
+function freezeScenario() {
+  const D = readAllInputs();
+  const incBase = D.inc.salario + D.inc.extras + D.inc.alqMAD + D.inc.alqVAL + D.inc.alqPlaza + D.inc.otrosInc;
+  const te     = incBase > 0 ? (D.exp.cuotas / incBase) * 100 : 0;
+  const teReal = incBase > 0 ? ((D.exp.cuotas + D.exp.gastosActivos) / incBase) * 100 : 0;
+  const endeud = D.totalAss > 0 ? (D.totalLiab / D.totalAss) * 100 : 0;
+  const ta     = D.totalInc > 0 ? (D.savings / D.totalInc) * 100 : 0;
+  const colch  = D.totalExp > 0 ? (D.fin + D.liq) / D.totalExp : 0;
+
+  frozenSnapshot = {
+    date: new Date().toLocaleDateString('es-ES'),
+    ingresos: [
+      { label: 'Salario base neto', val: D.inc.salario },
+      { label: 'Extras (pagas)', val: D.inc.extras },
+      ...(D.inclBonus ? [{ label: 'Bonus', val: D.inc.bonus }] : []),
+      { label: 'Alquiler MAD', val: D.inc.alqMAD },
+      { label: 'Alquiler VAL', val: D.inc.alqVAL },
+      { label: 'Alquiler Plaza', val: D.inc.alqPlaza },
+      { label: 'Otros activos', val: D.inc.otrosInc },
+      ...getExtraRows('inc'),
+    ],
+    gastos: [
+      { label: 'Cuotas hipotecas', val: D.exp.cuotas },
+      { label: 'Gastos propiedades', val: D.exp.gastosActivos },
+      { label: 'Gastos de vida', val: D.exp.gastosVida },
+      { label: 'Fondo inversión', val: D.exp.fondoInv },
+      ...getExtraRows('exp'),
+    ],
+    activos: [
+      { label: 'MAD Garaje 12', val: D.assets.garaje12 }, { label: 'MAD Garaje 100', val: D.assets.garaje100 },
+      { label: 'MAD Garaje 189', val: D.assets.garaje189 }, { label: 'VAL Palacio', val: D.assets.palacio },
+      { label: 'VAL Casa 2', val: D.assets.casa2 }, { label: 'VAL Plaza', val: D.assets.plaza },
+      { label: 'Fondos', val: D.assets.fondos }, { label: 'Santander', val: D.assets.santander },
+      { label: 'Otros', val: D.assets.otros },
+      ...getExtraRows('asset'),
+    ],
+    pasivos: [
+      { label: 'Hip. Palacio', val: D.liab.hipPalacio }, { label: 'Hip. Casa 2', val: D.liab.hipCasa2 },
+      { label: 'Hip. Plaza', val: D.liab.hipPlaza }, { label: 'Hip. Garajes', val: D.liab.hipGarajes },
+      ...getExtraRows('liab'),
+    ],
+    totInc: D.totalInc, totExp: D.totalExp, ahorro: D.savings,
+    totAss: D.totalAss, totLiab: D.totalLiab, neto: D.netWorth,
+    ratios: { te, teReal, endeud, ta, colch },
+  };
+
+  document.getElementById('sim-frozen-date').textContent = frozenSnapshot.date;
+  document.getElementById('sim-no-frozen').style.display = 'none';
+  document.getElementById('sim-content').style.display = '';
+  renderSimulador();
+}
+
+function clearFrozen() {
+  frozenSnapshot = null;
+  document.getElementById('sim-no-frozen').style.display = '';
+  document.getElementById('sim-content').style.display = 'none';
+}
+
+function renderSimulador() {
+  if (!frozenSnapshot) return;
+  const D = readAllInputs();
+  const incBase = D.inc.salario + D.inc.extras + D.inc.alqMAD + D.inc.alqVAL + D.inc.alqPlaza + D.inc.otrosInc;
+  const liveRatios = {
+    te:     incBase > 0 ? (D.exp.cuotas / incBase) * 100 : 0,
+    teReal: incBase > 0 ? ((D.exp.cuotas + D.exp.gastosActivos) / incBase) * 100 : 0,
+    endeud: D.totalAss > 0 ? (D.totalLiab / D.totalAss) * 100 : 0,
+    ta:     D.totalInc > 0 ? (D.savings / D.totalInc) * 100 : 0,
+    colch:  D.totalExp > 0 ? (D.fin + D.liq) / D.totalExp : 0,
+  };
+
+  const liveInc = [
+    { label:'Salario base neto', val:D.inc.salario }, { label:'Extras', val:D.inc.extras },
+    ...(D.inclBonus?[{label:'Bonus',val:D.inc.bonus}]:[]),
+    { label:'Alquiler MAD', val:D.inc.alqMAD }, { label:'Alquiler VAL', val:D.inc.alqVAL },
+    { label:'Alquiler Plaza', val:D.inc.alqPlaza }, { label:'Otros activos', val:D.inc.otrosInc },
+    ...getExtraRows('inc'),
+  ];
+  const liveExp = [
+    { label:'Cuotas hipotecas', val:D.exp.cuotas }, { label:'Gastos propiedades', val:D.exp.gastosActivos },
+    { label:'Gastos de vida', val:D.exp.gastosVida }, { label:'Fondo inversión', val:D.exp.fondoInv },
+    ...getExtraRows('exp'),
+  ];
+  const liveAss = [
+    { label:'MAD Garaje 12', val:D.assets.garaje12 }, { label:'MAD Garaje 100', val:D.assets.garaje100 },
+    { label:'MAD Garaje 189', val:D.assets.garaje189 }, { label:'VAL Palacio', val:D.assets.palacio },
+    { label:'VAL Casa 2', val:D.assets.casa2 }, { label:'VAL Plaza', val:D.assets.plaza },
+    { label:'Fondos', val:D.assets.fondos }, { label:'Santander', val:D.assets.santander },
+    { label:'Otros', val:D.assets.otros },
+    ...getExtraRows('asset'),
+  ];
+  const liveLiab = [
+    { label:'Hip. Palacio', val:D.liab.hipPalacio }, { label:'Hip. Casa 2', val:D.liab.hipCasa2 },
+    { label:'Hip. Plaza', val:D.liab.hipPlaza }, { label:'Hip. Garajes', val:D.liab.hipGarajes },
+    ...getExtraRows('liab'),
+  ];
+
+  fillSimBlock('sim-tbody-inc',  frozenSnapshot.ingresos, liveInc,  true);
+  fillSimBlock('sim-tbody-exp',  frozenSnapshot.gastos,   liveExp,  false);
+  fillSimBlock('sim-tbody-ass',  frozenSnapshot.activos,  liveAss,  true);
+  fillSimBlock('sim-tbody-liab', frozenSnapshot.pasivos,  liveLiab, false);
+
+  setSimRow('sim-tot-inc',  frozenSnapshot.totInc,  D.totalInc,  true,  '€');
+  setSimRow('sim-tot-exp',  frozenSnapshot.totExp,  D.totalExp,  false, '€');
+  setSimRow('sim-ahorro',   frozenSnapshot.ahorro,  D.savings,   true,  '€');
+  setSimRow('sim-tot-ass',  frozenSnapshot.totAss,  D.totalAss,  true,  '€');
+  setSimRow('sim-tot-liab', frozenSnapshot.totLiab, D.totalLiab, false, '€');
+  setSimRow('sim-neto',     frozenSnapshot.neto,    D.netWorth,  true,  '€');
+
+  const fr = frozenSnapshot.ratios;
+  setSimRow('sim-r-te',  fr.te,     liveRatios.te,     false, '%', true);
+  setSimRow('sim-r-ter', fr.teReal, liveRatios.teReal, false, '%', true);
+  setSimRow('sim-r-end', fr.endeud, liveRatios.endeud, false, '%', true);
+  setSimRow('sim-r-nw',  frozenSnapshot.neto, D.netWorth, true, '€');
+  setSimRow('sim-r-ta',  fr.ta,     liveRatios.ta,     true,  '%', true);
+  setSimRow('sim-r-col', fr.colch,  liveRatios.colch,  true,  'x', true);
+}
+
+function fillSimBlock(tbodyId, frozen, live, posIsGood) {
+  const tbody = document.getElementById(tbodyId);
+  tbody.innerHTML = '';
+  const allLabels = [...new Set([...frozen.map(r=>r.label), ...live.map(r=>r.label)])];
+  allLabels.forEach(lbl => {
+    const bv = frozen.find(r=>r.label===lbl)?.val ?? 0;
+    const lv = live.find(r=>r.label===lbl)?.val ?? 0;
+    const diff = lv - bv;
+    const dCls = diff === 0 ? 'sim-diff-neu' : (diff > 0) === posIsGood ? 'sim-diff-pos' : 'sim-diff-neg';
+    const dTxt = diff === 0 ? '—' : (diff > 0 ? '+' : '') + fmtEur(diff) + ' €';
+    tbody.innerHTML += `<tr>
+      <td>${lbl}</td>
+      <td class="text-right">${fmtEur(bv)} €</td>
+      <td class="text-right">${fmtEur(lv)} €</td>
+      <td class="text-right"><span class="${dCls}">${dTxt}</span></td>
+    </tr>`;
+  });
+}
+
+function setSimRow(prefix, baseVal, liveVal, posIsGood, unit, isRatio) {
+  const fmt = v => isRatio ? v.toFixed(1) + unit : fmtEur(v) + ' ' + unit;
+  setText(prefix + '-base', fmt(baseVal));
+  setText(prefix + '-live', fmt(liveVal));
+  const diff = liveVal - baseVal;
+  const dCls = diff === 0 ? 'sim-diff-neu' : (diff > 0) === posIsGood ? 'sim-diff-pos' : 'sim-diff-neg';
+  const dTxt = diff === 0 ? '—' : (diff > 0 ? '+' : '') + (isRatio ? diff.toFixed(1) + unit : fmtEur(diff) + ' ' + unit);
+  const el = document.getElementById(prefix + '-diff');
+  if (el) { el.textContent = dTxt; el.className = 'text-right'; el.innerHTML = `<span class="${dCls}">${dTxt}</span>`; }
+}
+
+/* ════════════════════════════════════════════
+   EXPORTAR SIMULADOR A JPG
+════════════════════════════════════════════ */
+function exportSimJpg() {
+  const el = document.getElementById('sim-capture');
+  if (!el) return;
+  // Usa html2canvas si disponible, si no avisa
+  if (typeof html2canvas === 'undefined') {
+    alert('Para exportar a JPG, incluye html2canvas en el proyecto.\nMientras tanto, usa Ctrl+P → "Guardar como PDF" o una captura de pantalla.');
+    return;
+  }
+  html2canvas(document.getElementById('sim-content'), { scale: 2, backgroundColor: '#f5f6fa' }).then(canvas => {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/jpeg', 0.95);
+    a.download = `simulador_${new Date().toISOString().split('T')[0]}.jpg`;
+    a.click();
+  });
+}
+
+/* ════════════════════════════════════════════
+   HELPERS
+════════════════════════════════════════════ */
+function fmtEur(n) { return Math.round(n).toLocaleString('es-ES'); }
+function round2(n) { return Math.round(n * 100) / 100; }
+function setText(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; }
+
+/* ════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════ */
+window.addEventListener('load', () => {
+  initResumenCharts();
+  recalcAll();
+});
+</script>
+</body>
+</html>

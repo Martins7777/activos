@@ -1,0 +1,7 @@
+Carpeta de reportes AMS
+========================
+Guarda aquí los ficheros JSON exportados desde el dashboard (AMS_Dashboard.html).
+Cada fichero corresponde a una posición patrimonial en una fecha concreta.
+Desde la pestaña "Histórico" del dashboard puedes cargarlos todos para analizar la evolución.
+
+Formato de nombre recomendado: reporte_YYYY-MM-DD.json  (generado automáticamente al exportar)
