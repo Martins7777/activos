@@ -268,6 +268,9 @@
       letter-spacing: 0.2px;
     }
     .btn-io:hover { background: rgba(255,255,255,0.22); }
+    .btn-asesor { background: rgba(99,102,241,0.2); border-color: rgba(99,102,241,0.45); }
+    .btn-asesor:hover { background: rgba(99,102,241,0.38); }
+    .btn-asesor.copied { background: rgba(16,185,129,0.2); border-color: rgba(16,185,129,0.5); color: #6ee7b7; }
 
     /* Botón guardar */
     .btn-save { transition: background 0.2s, border-color 0.2s; }
@@ -306,10 +309,65 @@
     .status-err { color: var(--neg); }
     .status-idle { color: rgba(255,255,255,0.35); }
 
+    /* ── Tabs ── */
+    .tab-nav {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 14px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0;
+    }
+    .tab-btn {
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      padding: 7px 14px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .tab-btn.active { color: var(--brand); border-bottom-color: var(--brand); }
+    .tab-btn:hover:not(.active) { color: var(--text); }
+
+    /* ── Panel de ratios ── */
+    .ratios-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .ratio-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .ratio-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .ratio-name { font-size: 11px; font-weight: 700; color: var(--text); }
+    .ratio-objetivo {
+      font-size: 9px; font-weight: 700; white-space: nowrap;
+      padding: 2px 6px; border-radius: 10px; flex-shrink: 0;
+    }
+    .obj-ok   { background: #d1fae5; color: #065f46; }
+    .obj-warn { background: #fef3c7; color: #92400e; }
+    .obj-crit { background: #fee2e2; color: #991b1b; }
+    .ratio-value { font-size: 22px; font-weight: 800; line-height: 1; }
+    .ratio-bar-wrap { background: #f1f5f9; border-radius: 4px; height: 4px; overflow: hidden; }
+    .ratio-bar { height: 100%; border-radius: 4px; transition: width 0.4s; }
+    .ratio-formula { font-size: 10px; color: var(--text-muted); }
+
     @media (max-width: 640px) {
       .grid-container { grid-template-columns: 1fr; }
       .col-tag { width: 56px; }
       .col-val { width: 76px; }
+      .ratios-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -321,8 +379,7 @@
     <button class="btn-io btn-save" id="btn-save" onclick="saveToWorker()" title="Guardar en la nube">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Guardar
     </button>
-    <button class="btn-io" onclick="exportData()">↓ Exportar</button>
-    <button class="btn-io" onclick="document.getElementById('fileInput').click()">↑ Importar</button>
+    <button class="btn-io btn-asesor" id="btn-asesor" onclick="copyToAsesor()" title="Copiar prompt para asesor IA">✦ Asesor</button>
     <button class="btn-io" onclick="toggleConfig()" id="btn-cfg">⚙ Config</button>
     <input type="file" id="fileInput" accept=".json" style="display:none" onchange="importData(this)">
     <div id="date" style="font-size:10px; font-weight:600; opacity:0.7;"></div>
@@ -338,8 +395,11 @@
     <label>Token de acceso</label>
     <input id="cfg-token" type="password" placeholder="Bearer token">
   </div>
-  <button class="btn-io" onclick="saveConfig()" style="padding:6px 12px; height:fit-content;">Guardar</button>
-  <button class="btn-io" onclick="loadFromWorker()" style="padding:6px 12px; height:fit-content;">↓ Cargar datos</button>
+  <button class="btn-io" onclick="saveConfig()" style="padding:6px 12px; height:fit-content;">Guardar config</button>
+  <button class="btn-io" onclick="loadFromWorker()" style="padding:6px 12px; height:fit-content;">↓ Cargar</button>
+  <div style="width:1px; background:rgba(255,255,255,0.12); align-self:stretch; margin:0 4px;"></div>
+  <button class="btn-io" onclick="exportData()" style="padding:6px 12px; height:fit-content;">↓ Exportar JSON</button>
+  <button class="btn-io" onclick="document.getElementById('fileInput').click()" style="padding:6px 12px; height:fit-content;">↑ Importar JSON</button>
   <span class="config-status status-idle" id="cfg-status">—</span>
 </div>
 
@@ -355,11 +415,23 @@
     </div>
   </div>
 
-  <div class="grid-container">
-    <div id="container-ingresos" class="card-wrap"></div>
-    <div id="container-gastos" class="card-wrap"></div>
-    <div id="container-activos" class="card-wrap"></div>
-    <div id="container-pasivos" class="card-wrap"></div>
+  <div class="tab-nav">
+    <button class="tab-btn active" id="tab-btn-posicion" onclick="switchTab('posicion')">Posición</button>
+    <button class="tab-btn" id="tab-btn-analisis" onclick="switchTab('analisis')">Análisis</button>
+  </div>
+
+  <div id="tab-posicion">
+    <div class="grid-container">
+      <div id="container-ingresos" class="card-wrap"></div>
+      <div id="container-gastos" class="card-wrap"></div>
+      <div id="container-activos" class="card-wrap"></div>
+      <div id="container-pasivos" class="card-wrap"></div>
+    </div>
+  </div>
+
+  <div id="tab-analisis" style="display:none">
+    <div class="ratios-grid" id="ratios-container"></div>
+    <div id="audit-container" style="margin-top:16px"></div>
   </div>
 </main>
 
@@ -367,10 +439,10 @@
   let state = { ingresos: [], gastos: [], activos: [], pasivos: [] };
 
   const tagsByCategory = {
-    ingresos: ['Trabajo', 'Rentas', 'Variable', 'Otros'],
-    gastos:   ['Vivienda', 'Deuda', 'Propiedades', 'Personal', 'Ahorro', 'Impuestos'],
-    activos:  ['Inmobiliario', 'Financiero', 'Liquidez', 'Otros'],
-    pasivos:  ['Hipoteca', 'Préstamo', 'Tarjeta', 'Otros']
+    ingresos: ['Trabajo', 'Renta', 'Variable', 'Otros'],
+    gastos:   ['Hipoteca', 'Préstamo', 'Propiedad', 'Personal', 'Ahorro'],
+    activos:  ['Inmobiliario', 'Financiero', 'Liquidez', 'Pensión'],
+    pasivos:  ['Hipoteca', 'Préstamo', 'Tarjeta']
   };
 
   function fmt(v) {
@@ -449,6 +521,7 @@
     netoEl.className     = 'stat-val ' + (neto   >= 0 ? 'txt-pos' : 'txt-neg');
     ahorroEl.textContent = fmt(ahorro);
     ahorroEl.className   = 'stat-val ' + (ahorro >= 0 ? 'txt-pos' : 'txt-neg');
+    if (activeTab === 'analisis') renderAnalisis();
   }
 
   /* Click sobre el valor: sustituye el span por un input numérico */
@@ -480,7 +553,7 @@
   }
 
   function update(c, g, i, f, v) {
-    state[c][g].items[i][f] = (f === 'value') ? Number(v) : v;
+    state[c][g].items[i][f] = (f === 'value') ? Number(v) : v.trim();
     markDirty(); render();
   }
 
@@ -594,6 +667,220 @@
       await loadFromWorker();
     }
   })();
+
+  // ── Tabs ────────────────────────────────────────────────────
+  let activeTab = 'posicion';
+  function switchTab(tab) {
+    activeTab = tab;
+    document.getElementById('tab-posicion').style.display = tab === 'posicion' ? '' : 'none';
+    document.getElementById('tab-analisis').style.display = tab === 'analisis' ? '' : 'none';
+    document.getElementById('tab-btn-posicion').classList.toggle('active', tab === 'posicion');
+    document.getElementById('tab-btn-analisis').classList.toggle('active', tab === 'analisis');
+    if (tab === 'analisis') renderAnalisis();
+  }
+
+  // ── Ratios ──────────────────────────────────────────────────
+  function byTag(cat, tags) {
+    const norm = t => (t || '').trim().toLowerCase();
+    const normTags = tags.map(norm);
+    return state[cat].flatMap(g => g.items)
+      .filter(i => normTags.includes(norm(i.type)))
+      .reduce((s, i) => s + Number(i.value), 0);
+  }
+  function total(cat) {
+    return state[cat].flatMap(g => g.items).reduce((s, i) => s + Number(i.value), 0);
+  }
+
+  function calcRatios() {
+    const tI = total('ingresos'), tG = total('gastos');
+    const tA = total('activos'),  tP = total('pasivos');
+    const pn = tA - tP;
+    const n  = v => fmtNum(Math.round(v));
+
+    // Suma por tags como cadena de números: "839 + 252 + 337"
+    const nv = (cat, tags) => {
+      const norm2 = t => (t||'').trim().toLowerCase();
+      const nt = tags.map(norm2);
+      const vals = state[cat].flatMap(g => g.items)
+        .filter(i => nt.includes(norm2(i.type))).map(i => n(i.value));
+      return vals.length ? vals.join(' + ') : '0';
+    };
+
+    const hipG  = byTag('gastos',   ['Hipoteca']);
+    const preG  = byTag('gastos',   ['Préstamo']);
+    const propG = byTag('gastos',   ['Propiedad']);
+    const trabI = byTag('ingresos', ['Trabajo']);
+    const rentI = byTag('ingresos', ['Renta']);
+    const liq   = byTag('activos',  ['Liquidez']);
+    const inm   = byTag('activos',  ['Inmobiliario']);
+    const ingDem  = trabI + rentI;
+    const cirbe   = hipG + preG;
+    const esfReal = hipG + preG + propG;
+    const rentas  = rentI * 12;
+
+    return [
+      { name: 'Tasa esfuerzo CIRBE',
+        tags:   'Hipoteca + Préstamo / Trabajo + Renta',
+        legend: `${nv('gastos',['Hipoteca','Préstamo'])} / ${nv('ingresos',['Trabajo','Renta'])}`,
+        value: ingDem > 0 ? cirbe   / ingDem : 0, fmt:'%', limit:0.35, dir:'lower',  obj:'< 35%' },
+      { name: 'Tasa esfuerzo real',
+        tags:   'Hipoteca + Préstamo + Propiedad / Trabajo + Renta',
+        legend: `${nv('gastos',['Hipoteca','Préstamo','Propiedad'])} / ${nv('ingresos',['Trabajo','Renta'])}`,
+        value: ingDem > 0 ? esfReal / ingDem : 0, fmt:'%', limit:0.40, dir:'lower',  obj:'< 40%' },
+      { name: 'Tasa de ahorro',
+        tags:   'Ingresos − Gastos / Ingresos',
+        legend: `${n(tI)} − ${n(tG)} / ${n(tI)}`,
+        value: tI     > 0 ? (tI-tG) / tI    : 0, fmt:'%', limit:0.20, dir:'higher', obj:'> 20%' },
+      { name: 'Ratio deuda / activos',
+        tags:   'Total Pasivos / Total Activos',
+        legend: `${n(tP)} / ${n(tA)}`,
+        value: tA     > 0 ? tP      / tA    : 0, fmt:'%', limit:0.60, dir:'lower',  obj:'< 60%' },
+      { name: 'Cobertura de liquidez',
+        tags:   'Liquidez / Total Gastos',
+        legend: `${nv('activos',['Liquidez'])} / ${n(tG)}`,
+        value: tG     > 0 ? liq     / tG    : 0, fmt:'x', limit:6,    dir:'higher', obj:'> 6 mes' },
+      { name: 'Yield inmobiliario',
+        tags:   'Renta × 12 / Inmobiliario',
+        legend: `${nv('ingresos',['Renta'])} × 12 / ${nv('activos',['Inmobiliario'])}`,
+        value: inm    > 0 ? rentas  / inm   : 0, fmt:'%', limit:0.04, dir:'higher', obj:'> 4%' },
+      { name: 'Diversificación inmob.',
+        tags:   'Inmobiliario / Total Activos',
+        legend: `${nv('activos',['Inmobiliario'])} / ${n(tA)}`,
+        value: tA     > 0 ? inm     / tA    : 0, fmt:'%', limit:0.60, dir:'lower',  obj:'< 60%' },
+      { name: 'Apalancamiento',
+        tags:   'Total Activos / Activos − Pasivos',
+        legend: `${n(tA)} / ${n(tA)} − ${n(tP)}`,
+        value: pn     > 0 ? tA      / pn    : 0, fmt:'x', limit:3,    dir:'lower',  obj:'< 3×' },
+    ];
+  }
+
+  function semaforo(r) {
+    if (r.dir === 'lower')  return r.value <= r.limit * 0.75 ? 'ok' : r.value <= r.limit ? 'warn' : 'crit';
+    return r.value >= r.limit ? 'ok' : r.value >= r.limit * 0.65 ? 'warn' : 'crit';
+  }
+
+  function renderAnalisis() {
+    const ratios = calcRatios();
+    const colorMap = { ok: 'var(--pos)', warn: '#f59e0b', crit: 'var(--neg)' };
+    const labelMap = { ok: 'obj-ok', warn: 'obj-warn', crit: 'obj-crit' };
+
+    const html = ratios.map(r => {
+      const s    = semaforo(r);
+      const color = colorMap[s];
+      const pct  = r.fmt === '%'
+        ? (r.value * 100).toFixed(1) + '%'
+        : r.value.toFixed(1) + '×';
+      const barW = r.dir === 'lower'
+        ? Math.min(r.value / r.limit, 1.2) * 100
+        : Math.min(r.value / r.limit, 1)   * 100;
+
+      return `<div class="ratio-card">
+        <div class="ratio-header">
+          <span class="ratio-name">${r.name}</span>
+          <span class="ratio-objetivo ${labelMap[s]}">${r.obj}</span>
+        </div>
+        <div class="ratio-value" style="color:${color}">${pct}</div>
+        <div class="ratio-bar-wrap">
+          <div class="ratio-bar" style="width:${barW}%;background:${color}"></div>
+        </div>
+        <div class="ratio-formula">${r.tags}</div>
+        <div class="ratio-formula" style="color:#94a3b8">${r.legend}</div>
+      </div>`;
+    }).join('');
+
+    document.getElementById('ratios-container').innerHTML = html;
+
+    // Auditoría de tags
+    const tagRatios = {
+      'trabajo':'CIRBE · Esfuerzo real', 'renta':'CIRBE · Esfuerzo real · Yield',
+      'hipoteca':'CIRBE · Esfuerzo real', 'préstamo':'CIRBE · Esfuerzo real',
+      'propiedad':'Esfuerzo real', 'inmobiliario':'Yield · Diversificación',
+      'liquidez':'Cobertura liquidez'
+    };
+    const norm2 = t => (t||'').trim().toLowerCase();
+    let audit = `<div class="card" style="overflow:hidden">
+      <div class="card-header"><h2>Auditoría de tags</h2></div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px"><thead>
+        <tr style="background:#f1f5f9">
+          <th style="padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:700">Concepto</th>
+          <th style="padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:700">Categoría</th>
+          <th style="padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:700">Tag</th>
+          <th style="padding:6px 10px;text-align:right;color:var(--text-muted);font-weight:700">Valor</th>
+          <th style="padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:700">Usado en</th>
+        </tr></thead><tbody>`;
+    ['ingresos','gastos','activos','pasivos'].forEach(cat => {
+      state[cat].flatMap(g => g.items).forEach(item => {
+        const key = norm2(item.type);
+        const usedIn = tagRatios[key] || (cat==='pasivos' ? 'Deuda/Activos · Apalancamiento' : 'Totales');
+        const usedInRatio = !!tagRatios[key];
+        audit += `<tr style="border-bottom:1px solid #f1f5f9">
+          <td style="padding:5px 10px">${item.label}</td>
+          <td style="padding:5px 10px;color:var(--text-muted);text-transform:capitalize">${cat}</td>
+          <td style="padding:5px 10px;font-weight:700;color:${usedInRatio?'var(--pos)':'var(--text-muted)'}">${item.type}</td>
+          <td style="padding:5px 10px;text-align:right;font-weight:600">${fmt(item.value)}</td>
+          <td style="padding:5px 10px;color:var(--text-muted);font-size:10px">${usedIn}</td>
+        </tr>`;
+      });
+    });
+    audit += `</tbody></table></div>`;
+    document.getElementById('audit-container').innerHTML = audit;
+  }
+
+  function copyToAsesor() {
+    const sum = cat => state[cat].flatMap(g => g.items).reduce((s, i) => s + Number(i.value), 0);
+    const totalIngresos = sum('ingresos');
+    const totalGastos   = sum('gastos');
+    const totalActivos  = sum('activos');
+    const totalPasivos  = sum('pasivos');
+    const patrimonioNeto = totalActivos - totalPasivos;
+    const ahorroMensual  = totalIngresos - totalGastos;
+
+    const fmtP = v => new Intl.NumberFormat('es-ES').format(Math.round(v)) + ' €';
+
+    const bloque = (cat, titulo) => {
+      let txt = `\n## ${titulo.toUpperCase()}\n`;
+      state[cat].forEach(g => {
+        const gSum = g.items.reduce((s, i) => s + Number(i.value), 0);
+        txt += `\n### ${g.title} — ${fmtP(gSum)}\n`;
+        g.items.forEach(i => { txt += `  - ${i.label} [${i.type}]: ${fmtP(i.value)}\n`; });
+      });
+      return txt;
+    };
+
+    const prompt = `Eres un asesor financiero independiente. Analiza mi posición patrimonial actual y proporciona un informe estructurado.
+
+━━━ POSICIÓN PATRIMONIAL — ${new Date().toLocaleDateString('es-ES', {day:'numeric', month:'long', year:'numeric'})} ━━━
+${bloque('ingresos','Ingresos mensuales')}${bloque('gastos','Gastos mensuales')}${bloque('activos','Activos')}${bloque('pasivos','Pasivos')}
+━━━ RESUMEN ━━━
+  Ingresos totales:  ${fmtP(totalIngresos)}/mes
+  Gastos totales:    ${fmtP(totalGastos)}/mes
+  Ahorro mensual:    ${fmtP(ahorroMensual)}/mes
+  Total activos:     ${fmtP(totalActivos)}
+  Total pasivos:     ${fmtP(totalPasivos)}
+  Patrimonio neto:   ${fmtP(patrimonioNeto)}
+
+━━━ SOLICITUD DE ANÁLISIS ━━━
+Con los datos anteriores, proporciona:
+
+1. **5 FORTALEZAS** de mi posición financiera actual (con argumentos numéricos concretos).
+
+2. **5 ACCIONES PRIORITARIAS** que debería tomar en los próximos 12 meses para mejorar mi posición (ordenadas por impacto, con estimación del beneficio esperado). Por ejemplo: optimizar inmuebles sin alquilar, diversificar fuera del inmobiliario, reducir deuda, etc.
+
+3. **5 RATIOS DE SOLVENCIA** más relevantes para mi perfil, calculados con mis datos reales:
+   - Nombre del ratio
+   - Valor calculado
+   - Interpretación (semáforo: bueno / mejorable / crítico)
+   - Benchmark de referencia
+
+Sé directo, numérico y accionable. No uses lenguaje genérico.`;
+
+    navigator.clipboard.writeText(prompt).then(() => {
+      const btn = document.getElementById('btn-asesor');
+      btn.textContent = '✓ Copiado';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.innerHTML = '✦ Asesor'; btn.classList.remove('copied'); }, 2500);
+    });
+  }
 
   document.getElementById('date').textContent =
     new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).toUpperCase();
