@@ -552,6 +552,7 @@
   function toggleGroup(cat, gIdx) {
     const groupKey = `${cat}-${gIdx}`;
     expandedGroups[groupKey] = !expandedGroups[groupKey];
+    localStorage.setItem('ams_expanded_groups', JSON.stringify(expandedGroups));
     render();
   }
 
@@ -690,6 +691,16 @@
     const el = document.getElementById('cfg-status');
     el.textContent = msg;
     el.className = 'config-status status-' + type;
+  }
+
+  // ── Cargar estado de secciones expandidas ──────────────────────────
+  const savedExpandedGroups = localStorage.getItem('ams_expanded_groups');
+  if (savedExpandedGroups) {
+    try {
+      expandedGroups = JSON.parse(savedExpandedGroups);
+    } catch (e) {
+      expandedGroups = {};
+    }
   }
 
   // Auto-fetch si hay config guardada
