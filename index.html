@@ -499,7 +499,7 @@
                    onchange="state['${cat}'][${gIdx}].title=this.value; render()"
                    onfocus="showDeleteGroupBtn(this, '${cat}', ${gIdx})"
                    onblur="hideDeleteGroupBtn(this)">
-            <span class="group-del-btn" style="display:none; font-size:12px; color:var(--text-muted); cursor:pointer; flex-shrink:0; padding:2px 4px;" onclick="deleteGroupWithConfirm(event, '${cat}', ${gIdx})" title="Borrar sección">×</span>
+            <span class="group-del-btn" style="display:none; font-size:12px; color:var(--text-muted); cursor:pointer; flex-shrink:0; padding:2px 4px;" onmousedown="deleteGroupWithConfirm(event, '${cat}', ${gIdx})" title="Borrar sección">×</span>
           </div>
           <span class="group-sum">${fmt(gSum)}</span>
         </div>`;
