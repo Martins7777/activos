@@ -116,6 +116,24 @@
       white-space: nowrap;
       flex-shrink: 0;
     }
+    .group-toggle {
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 10px;
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+    }
+    .group-toggle.collapsed {
+      transform: rotate(-90deg);
+    }
+    .group-items.collapsed {
+      display: none;
+    }
 
     /* ── Fila de ítem: flexbox con anchos fijos en px ── */
     .row-item {
@@ -437,6 +455,7 @@
 
 <script>
   let state = { ingresos: [], gastos: [], activos: [], pasivos: [] };
+  let expandedGroups = {}; // Guardar estado expandido por grupo: "cat-gIdx" => true/false
 
   const tagsByCategory = {
     ingresos: ['Trabajo', 'Renta', 'Variable', 'Otros'],
@@ -470,12 +489,17 @@
       state[cat].forEach((group, gIdx) => {
         const gSum = group.items.reduce((s, it) => s + Number(it.value), 0);
         catTotal += gSum;
+        const groupKey = `${cat}-${gIdx}`;
+        const isExpanded = expandedGroups[groupKey] !== false; // Por defecto expandido
 
         html += `<div class="group-title-row">
+          <span class="group-toggle ${!isExpanded ? 'collapsed' : ''}" onclick="toggleGroup('${cat}',${gIdx})">▼</span>
           <input class="group-title-input" value="${group.title}"
                  onchange="state['${cat}'][${gIdx}].title=this.value; render()">
           <span class="group-sum">${fmt(gSum)}</span>
         </div>`;
+
+        html += `<div class="group-items ${!isExpanded ? 'collapsed' : ''}">`;
 
         group.items.forEach((item, iIdx) => {
           const opts = tagsByCategory[cat]
@@ -503,6 +527,7 @@
         });
 
         html += `<div class="btn-add-item" onclick="addItem('${cat}',${gIdx})">+ añadir concepto</div>`;
+        html += `</div>`;
       });
 
       html += `<div class="btn-add-group" onclick="addGroup('${cat}')">+ añadir sección</div>`;
@@ -522,6 +547,12 @@
     ahorroEl.textContent = fmt(ahorro);
     ahorroEl.className   = 'stat-val ' + (ahorro >= 0 ? 'txt-pos' : 'txt-neg');
     if (activeTab === 'analisis') renderAnalisis();
+  }
+
+  function toggleGroup(cat, gIdx) {
+    const groupKey = `${cat}-${gIdx}`;
+    expandedGroups[groupKey] = !expandedGroups[groupKey];
+    render();
   }
 
   /* Click sobre el valor: sustituye el span por un input numérico */
