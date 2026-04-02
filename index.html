@@ -116,6 +116,19 @@
       white-space: nowrap;
       flex-shrink: 0;
     }
+    .btn-del-group {
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      padding: 2px 4px;
+      flex-shrink: 0;
+      transition: color 0.2s ease;
+    }
+    .btn-del-group:hover {
+      color: var(--neg);
+    }
     .group-toggle {
       cursor: pointer;
       width: 16px;
@@ -497,6 +510,7 @@
           <input class="group-title-input" value="${group.title}"
                  onchange="state['${cat}'][${gIdx}].title=this.value; render()">
           <span class="group-sum">${fmt(gSum)}</span>
+          <span class="btn-del-group" onclick="deleteGroup('${cat}',${gIdx})" title="Borrar sección">×</span>
         </div>`;
 
         html += `<div class="group-items ${!isExpanded ? 'collapsed' : ''}">`;
@@ -554,6 +568,14 @@
     expandedGroups[groupKey] = !expandedGroups[groupKey];
     localStorage.setItem('ams_expanded_groups', JSON.stringify(expandedGroups));
     render();
+  }
+
+  function deleteGroup(cat, gIdx) {
+    if (confirm(`¿Borrar sección "${state[cat][gIdx].title}"? Esta acción no se puede deshacer.`)) {
+      state[cat].splice(gIdx, 1);
+      markDirty();
+      render();
+    }
   }
 
   /* Click sobre el valor: sustituye el span por un input numérico */
