@@ -116,19 +116,6 @@
       white-space: nowrap;
       flex-shrink: 0;
     }
-    .btn-del-group {
-      cursor: pointer;
-      font-size: 14px;
-      color: var(--text-muted);
-      background: none;
-      border: none;
-      padding: 2px 4px;
-      flex-shrink: 0;
-      transition: color 0.2s ease;
-    }
-    .btn-del-group:hover {
-      color: var(--neg);
-    }
     .group-toggle {
       cursor: pointer;
       width: 16px;
@@ -507,10 +494,14 @@
 
         html += `<div class="group-title-row">
           <span class="group-toggle ${!isExpanded ? 'collapsed' : ''}" onclick="toggleGroup('${cat}',${gIdx})">▼</span>
-          <input class="group-title-input" value="${group.title}"
-                 onchange="state['${cat}'][${gIdx}].title=this.value; render()">
+          <div style="display:flex; gap:6px; align-items:center; flex:1; min-width:0;">
+            <input class="group-title-input" value="${group.title}"
+                   onchange="state['${cat}'][${gIdx}].title=this.value; render()"
+                   onfocus="showDeleteGroupBtn(this, '${cat}', ${gIdx})"
+                   onblur="hideDeleteGroupBtn(this)">
+            <span class="group-del-btn" style="display:none; font-size:12px; color:var(--text-muted); cursor:pointer; flex-shrink:0; padding:2px 4px;" onclick="deleteGroupWithConfirm(event, '${cat}', ${gIdx})" title="Borrar sección">×</span>
+          </div>
           <span class="group-sum">${fmt(gSum)}</span>
-          <span class="btn-del-group" onclick="deleteGroup('${cat}',${gIdx})" title="Borrar sección">×</span>
         </div>`;
 
         html += `<div class="group-items ${!isExpanded ? 'collapsed' : ''}">`;
@@ -570,7 +561,22 @@
     render();
   }
 
-  function deleteGroup(cat, gIdx) {
+  function showDeleteGroupBtn(input, cat, gIdx) {
+    const btn = input.nextElementSibling;
+    if (btn && btn.classList.contains('group-del-btn')) {
+      btn.style.display = 'block';
+    }
+  }
+
+  function hideDeleteGroupBtn(input) {
+    const btn = input.nextElementSibling;
+    if (btn && btn.classList.contains('group-del-btn')) {
+      btn.style.display = 'none';
+    }
+  }
+
+  function deleteGroupWithConfirm(event, cat, gIdx) {
+    event.stopPropagation();
     if (confirm(`¿Borrar sección "${state[cat][gIdx].title}"? Esta acción no se puede deshacer.`)) {
       state[cat].splice(gIdx, 1);
       markDirty();
