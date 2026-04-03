@@ -1127,9 +1127,9 @@
       return m.importe / 12;
     }
 
-    // Totales KPI
-    const totI = filtered.filter(m => m.cat === 'ingresos').reduce((s,m) => s + importeEfectivo(m), 0);
-    const totG = filtered.filter(m => m.cat === 'gastos').reduce((s,m) => s + Math.abs(importeEfectivo(m)), 0);
+    // Totales KPI — ingresos = columna izquierda (ingresos + interno con importe positivo)
+    const totI = filtered.filter(m => m.cat === 'ingresos' || (m.cat === 'interno' && m.importe > 0)).reduce((s,m) => s + importeEfectivo(m), 0);
+    const totG = filtered.filter(m => m.cat === 'gastos'   || (m.cat === 'interno' && m.importe < 0)).reduce((s,m) => s + Math.abs(importeEfectivo(m)), 0);
     kpiEl.innerHTML = `
       <span><span>Ingresos</span> <strong class="txt-pos">${fmt(totI)}</strong></span>
       <span><span>Gastos</span> <strong class="txt-neg">${fmt(totG)}</strong></span>
