@@ -1180,9 +1180,11 @@
         </div>`;
 
         if (isExpanded) {
+          const toTs = f => { const [d,mo,y] = f.split('/'); return +new Date(+y, +mo-1, +d); };
           let items = [...g.items];
           if (sortMode === 'desc') items.sort((a,b) => Math.abs(b.importe) - Math.abs(a.importe));
           else if (sortMode === 'asc') items.sort((a,b) => Math.abs(a.importe) - Math.abs(b.importe));
+          else items.sort((a,b) => toTs(b.fecha) - toTs(a.fecha)); // fecha: más reciente primero
 
           items.forEach(m => {
             const oi = m.origIdx;
