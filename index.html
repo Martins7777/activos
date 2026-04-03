@@ -747,7 +747,7 @@
       const res = await fetch(url, {
         method: 'PUT',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify(state)
+        body: JSON.stringify({ ...state, movimientos })
       });
       if (res.ok) { markClean(); setStatus('✓ Guardado', 'ok'); }
       else setStatus('Error ' + res.status, 'err');
@@ -810,7 +810,9 @@
       if (!res.ok) { setStatus('Error ' + res.status, 'err'); return; }
       const data = await res.json();
       if (data.ingresos && data.gastos && data.activos && data.pasivos) {
-        state = data;
+        const { movimientos: mov, ...rest } = data;
+        state = rest;
+        if (Array.isArray(mov)) { movimientos = mov; updatePeriodFilter(); }
         render();
         setStatus('✓ Cargado', 'ok');
       } else {
