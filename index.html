@@ -586,11 +586,17 @@
     <div class="mov-toolbar" style="align-items:flex-end;gap:12px;margin-bottom:14px">
       <div class="mov-filter-group">
         <span class="mov-filter-label">Cuenta 1</span>
-        <button class="btn-io btn-light" onclick="document.getElementById('csvInput').click()">↑ Importar CSV</button>
+        <div style="display:flex;gap:4px">
+          <button class="btn-io btn-light" onclick="document.getElementById('csvInput').click()">↑ Importar CSV</button>
+          <button class="btn-io btn-light" onclick="if(confirm('¿Limpiar todos los datos de Cuenta 1?'))clearMovimientos(1)" title="Limpiar cuenta 1" style="color:var(--neg)">✕</button>
+        </div>
       </div>
       <div class="mov-filter-group">
         <span class="mov-filter-label">Cuenta 2</span>
-        <button class="btn-io btn-light" onclick="document.getElementById('csvInput2').click()">↑ Importar CSV</button>
+        <div style="display:flex;gap:4px">
+          <button class="btn-io btn-light" onclick="document.getElementById('csvInput2').click()">↑ Importar CSV</button>
+          <button class="btn-io btn-light" onclick="if(confirm('¿Limpiar todos los datos de Cuenta 2?'))clearMovimientos(2)" title="Limpiar cuenta 2" style="color:var(--neg)">✕</button>
+        </div>
       </div>
       <div class="mov-filter-group">
         <span class="mov-filter-label">Cuenta</span>
@@ -1010,22 +1016,22 @@
     }).filter(Boolean);
   }
 
+  function clearMovimientos(acct) {
+    if (acct === 1) movimientos = [];
+    else movimientos2 = [];
+    updatePeriodPills(1);
+    renderMovimientos();
+  }
+
   function importCSV(input, acct = 1) {
     const file = input.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = e => {
+      // Reemplaza completamente — no mezcla con ediciones previas
       const parsed = parseCSV(e.target.result);
-      const arr = acct === 1 ? movimientos : movimientos2;
-      const merged = [...arr, ...parsed];
-      const seen = new Set();
-      const deduped = merged.filter(m => {
-        const key = m.fecha + '|' + m.desc + '|' + m.importe;
-        if (seen.has(key)) return false;
-        seen.add(key); return true;
-      });
-      if (acct === 1) movimientos = deduped;
-      else movimientos2 = deduped;
+      if (acct === 1) movimientos = parsed;
+      else movimientos2 = parsed;
       updatePeriodPills(1);
       renderMovimientos();
     };
