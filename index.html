@@ -454,7 +454,19 @@
       font-size: 12px;
     }
     .mov-row:hover { background: #f8fafc; }
-    .mov-fecha { color: var(--text-muted); font-size: 11px; flex-shrink: 0; width: 72px; }
+    .mov-fecha { color: var(--text-muted); font-size: 11px; flex-shrink: 0; width: 72px; cursor: text; }
+    .mov-fecha-input {
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--text-muted);
+      border: none;
+      border-bottom: 1px solid var(--brand);
+      background: transparent;
+      outline: none;
+      width: 72px;
+      flex-shrink: 0;
+      padding: 0;
+    }
     .mov-desc { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .mov-tag-sel {
       font-family: inherit;
@@ -1193,7 +1205,10 @@
             if (isEditing) {
               const descEsc = (m.desc || '').replace(/"/g,'&quot;');
               html += `<div class="mov-row ${rowCls}" style="flex-wrap:wrap;gap:4px">
-                <span class="mov-fecha">${m.fecha.slice(0,5)}</span>
+                <input class="mov-fecha-input" value="${m.fecha}"
+                  onchange="${arr}[${oi}].fecha=this.value;updatePeriodPills();renderMovimientos()"
+                  onkeydown="if(event.key==='Enter')document.getElementById('mov-edit-${editKey}').focus()"
+                  placeholder="dd/mm/aaaa">
                 <input class="mov-desc-input" value="${descEsc}"
                   onchange="${arr}[${oi}].desc=this.value"
                   onblur="movEditando=null;renderMovimientos()"
@@ -1209,7 +1224,7 @@
               </div>`;
             } else {
               html += `<div class="mov-row ${rowCls}">
-                <span class="mov-fecha">${m.fecha.slice(0,5)}</span>
+                <span class="mov-fecha" onclick="movEditando='${editKey}';renderMovimientos()" title="Click para editar">${m.fecha.slice(0,5)}</span>
                 <span class="mov-desc" style="cursor:text" onclick="movEditando='${editKey}';renderMovimientos()">${m.desc}${acctBadge}${amortLabel}</span>
                 <select class="mov-tag-sel" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${oi},t,c,${ac})})(this)">${catOpts}</select>
                 <span class="mov-importe ${impEf>=0?'txt-pos':'txt-neg'}">${fmt(impEf)}</span>
