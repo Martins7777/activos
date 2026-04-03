@@ -1169,12 +1169,13 @@
         const sortMode = sortMovGroups[gKey] || 'fecha';
         const gTotal = g.items.reduce((s,m) => s + importeEfectivo(m), 0);
         const colorCls = g.cat === 'ingresos' ? 'txt-pos' : g.cat === 'gastos' ? 'txt-neg' : '';
-        const sortLabel = sortMode === 'fecha' ? '↕' : sortMode === 'desc' ? '↓' : '↑';
+        const sortIcon  = sortMode === 'fecha' ? '⇅' : sortMode === 'desc' ? '↓' : '↑';
+        const sortTitle = sortMode === 'fecha' ? 'Ordenar por importe ↓' : sortMode === 'desc' ? 'Ordenar por importe ↑' : 'Ordenar por fecha';
 
         html += `<div class="group-title-row" style="cursor:pointer" onclick="toggleMovGroup('${gKey}')">
           <span class="group-toggle ${!isExpanded ? 'collapsed' : ''}">▼</span>
           <span style="flex:1;font-size:11px;font-weight:700;color:var(--text)">${g.tag}</span>
-          <span style="font-size:10px;color:var(--text-muted);margin-right:8px" onclick="toggleMovSort('${gKey}',event)">${sortLabel}</span>
+          <span style="font-size:13px;color:var(--text-muted);margin-right:8px;line-height:1" onclick="toggleMovSort('${gKey}',event)" title="${sortTitle}">${sortIcon}</span>
           <span class="group-sum ${colorCls}">${fmt(Math.abs(gTotal))}</span>
         </div>`;
 
