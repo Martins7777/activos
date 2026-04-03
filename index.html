@@ -286,6 +286,12 @@
       letter-spacing: 0.2px;
     }
     .btn-io:hover { background: rgba(255,255,255,0.22); }
+    .btn-io.btn-light {
+      color: var(--brand);
+      background: white;
+      border-color: var(--border);
+    }
+    .btn-io.btn-light:hover { background: #f1f5f9; }
     .btn-asesor { background: rgba(99,102,241,0.2); border-color: rgba(99,102,241,0.45); }
     .btn-asesor:hover { background: rgba(99,102,241,0.38); }
     .btn-asesor.copied { background: rgba(16,185,129,0.2); border-color: rgba(16,185,129,0.5); color: #6ee7b7; }
@@ -577,12 +583,12 @@
     <div class="mov-toolbar" style="flex-direction:column;align-items:flex-start;gap:8px">
       <div class="mov-account-row">
         <span class="mov-account-label">Cuenta 1</span>
-        <button class="btn-io" onclick="document.getElementById('csvInput').click()">↑ Importar CSV</button>
+        <button class="btn-io btn-light" onclick="document.getElementById('csvInput').click()">↑ Importar CSV</button>
         <div class="mov-pills" id="mov-pills-1"></div>
       </div>
       <div class="mov-account-row">
         <span class="mov-account-label">Cuenta 2</span>
-        <button class="btn-io" onclick="document.getElementById('csvInput2').click()">↑ Importar CSV</button>
+        <button class="btn-io btn-light" onclick="document.getElementById('csvInput2').click()">↑ Importar CSV</button>
         <div class="mov-pills" id="mov-pills-2"></div>
       </div>
       <div class="mov-kpi" id="mov-kpi" style="margin-left:0;margin-top:4px"></div>
