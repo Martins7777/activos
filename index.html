@@ -1286,29 +1286,28 @@
       <span><span>Gastos</span> <strong class="txt-neg">${fmt(totG)}</strong></span>
       <span><span>Balance</span> <strong class="${totI-totG>=0?'txt-pos':'txt-neg'}">${fmt(totI-totG)}</strong></span>`;
 
-    // Agrupar por cat+tag, guardando acct y origIdx
-    const groups = {};
-    filtered1.forEach(m => {
-      const key = m.cat + '|' + m.tag;
-      if (!groups[key]) groups[key] = { cat: m.cat, tag: m.tag, items: [] };
-      groups[key].items.push({ ...m, acct: 1, origIdx: movimientos.indexOf(m) });
-    });
-    filtered2.forEach(m => {
-      const key = m.cat + '|' + m.tag;
-      if (!groups[key]) groups[key] = { cat: m.cat, tag: m.tag, items: [] };
-      groups[key].items.push({ ...m, acct: 2, origIdx: movimientos2.indexOf(m) });
-    });
-    filtered3.forEach(m => {
-      const key = m.cat + '|' + m.tag;
-      if (!groups[key]) groups[key] = { cat: m.cat, tag: m.tag, items: [] };
-      groups[key].items.push({ ...m, acct: 3, origIdx: movimientos3.indexOf(m) });
-    });
-
     const allTags = {
       ingresos: tagsByCategory.ingresos,
       gastos:   tagsByCategory.gastos,
       interno:  ['Transferencia', 'Fianza'],
     };
+
+    // Agrupar por cat+tag, guardando acct y origIdx; incompatibles aparte
+    const groups = {};
+    const incompatible = [];
+    function routeItem(m, ac, src) {
+      const valid = allTags[m.cat] && allTags[m.cat].includes(m.tag);
+      if (!valid) {
+        incompatible.push({ ...m, acct: ac, origIdx: src.indexOf(m) });
+      } else {
+        const key = m.cat + '|' + m.tag;
+        if (!groups[key]) groups[key] = { cat: m.cat, tag: m.tag, items: [] };
+        groups[key].items.push({ ...m, acct: ac, origIdx: src.indexOf(m) });
+      }
+    }
+    filtered1.forEach(m => routeItem(m, 1, movimientos));
+    filtered2.forEach(m => routeItem(m, 2, movimientos2));
+    filtered3.forEach(m => routeItem(m, 3, movimientos3));
 
     function buildColumn(cats) {
       const order = { ingresos: 0, gastos: 1, interno: 2 };
@@ -1411,7 +1410,41 @@
       return html;
     }
 
-    container.innerHTML = buildColumn(['ingresos','interno']) + buildColumn(['gastos']);
+    function buildIncompatibleSection() {
+      if (!incompatible.length) return '';
+      const catOpts = (m) => ['ingresos','gastos','interno'].map(c =>
+        `<optgroup label="${c}">${(allTags[c]||[]).map(t =>
+          `<option value="${c}|${t}">${t}</option>`
+        ).join('')}</optgroup>`).join('');
+      const toTs = f => { const [d,mo,y] = f.split('/'); return +new Date(+y, +mo-1, +d); };
+      const sorted = [...incompatible].sort((a,b) => toTs(b.fecha) - toTs(a.fecha));
+      const acctBadge = (ac) => (movimientos2.length || movimientos3.length)
+        ? `<span style="font-size:9px;color:var(--text-muted);margin-left:2px">[C${ac}]</span>` : '';
+      let html = `<div class="card" style="overflow:hidden;grid-column:1/-1">
+        <div class="card-header" style="background:#92400e">
+          <h2>SIN CATEGORÍA VÁLIDA</h2>
+          <span class="tot-val" style="font-size:10px;opacity:0.8">${sorted.length} concepto${sorted.length!==1?'s':''} · asigna un tag para clasificarlos</span>
+        </div>`;
+      sorted.forEach(m => {
+        const oi = m.origIdx;
+        const ac = m.acct;
+        const arr = ac === 1 ? 'movimientos' : ac === 2 ? 'movimientos2' : 'movimientos3';
+        const impEf = importeEfectivo(m);
+        const tagLabel = m.cat || m.tag ? `<span style="font-size:10px;color:#92400e;margin-left:4px">[${m.cat||'?'}/${m.tag||'?'}]</span>` : '';
+        html += `<div class="mov-row" style="background:#fffbeb">
+          <span class="mov-fecha">${m.fecha.slice(0,5)}</span>
+          <span class="mov-desc">${m.desc}${acctBadge(ac)}${tagLabel}</span>
+          <select class="mov-tag-sel" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${oi},t,c,${ac})})(this)">
+            <option value="">-- Asignar --</option>${catOpts(m)}
+          </select>
+          <span class="mov-importe ${impEf>=0?'txt-pos':'txt-neg'}">${fmt(impEf)}</span>
+        </div>`;
+      });
+      html += '</div>';
+      return html;
+    }
+
+    container.innerHTML = buildColumn(['ingresos','interno']) + buildColumn(['gastos']) + buildIncompatibleSection();
 
     if (movEditando !== null) {
       const inp = document.getElementById(`mov-edit-${movEditando}`);
