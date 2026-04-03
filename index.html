@@ -514,6 +514,41 @@
       .ratios-grid { grid-template-columns: 1fr; }
       .mov-kpi { margin-left: 0; width: 100%; }
     }
+
+    /* Modal de reglas */
+    .rules-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 300;
+      align-items: center;
+      justify-content: center;
+    }
+    .rules-backdrop.open { display: flex; }
+    .rules-modal {
+      background: white;
+      border-radius: var(--radius);
+      padding: 20px;
+      width: 420px;
+      max-width: 95vw;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+    }
+    .rules-modal h3 { margin: 0 0 14px; font-size: 13px; font-weight: 700; }
+    .rules-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .rules-row:last-child { border-bottom: none; }
+    .rules-add { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .rules-input { flex: 1; min-width: 110px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; font-size: 12px; }
+    .rules-select { padding: 5px 6px; border: 1px solid var(--border); border-radius: 5px; font-size: 12px; background: white; }
   </style>
 </head>
 <body>
@@ -583,6 +618,7 @@
   <div id="tab-movimientos" style="display:none">
     <input type="file" id="csvInput" accept=".csv" style="display:none" onchange="importCSV(this,1)">
     <input type="file" id="csvInput2" accept=".csv" style="display:none" onchange="importCSV(this,2)">
+    <input type="file" id="csvInput3" accept=".csv" style="display:none" onchange="importCSV(this,3)">
     <div class="mov-toolbar" style="align-items:flex-end;gap:12px;margin-bottom:14px">
       <div class="mov-filter-group">
         <span class="mov-filter-label">Cuenta 1</span>
@@ -599,11 +635,19 @@
         </div>
       </div>
       <div class="mov-filter-group">
+        <span class="mov-filter-label">Cuenta 3 (Santander)</span>
+        <div style="display:flex;gap:4px">
+          <button class="btn-io btn-light" onclick="document.getElementById('csvInput3').click()">↑ Importar CSV</button>
+          <button class="btn-io btn-light" onclick="if(confirm('¿Limpiar todos los datos de Cuenta 3?'))clearMovimientos(3)" title="Limpiar cuenta 3" style="color:var(--neg)">✕</button>
+        </div>
+      </div>
+      <div class="mov-filter-group">
         <span class="mov-filter-label">Cuenta</span>
         <select class="mov-select" id="mov-acct-filter" onchange="renderMovimientos()">
           <option value="">Todas</option>
           <option value="1">Cuenta 1</option>
           <option value="2">Cuenta 2</option>
+          <option value="3">Cuenta 3</option>
         </select>
       </div>
       <div class="mov-filter-group">
@@ -619,10 +663,34 @@
         </select>
       </div>
       <div class="mov-kpi" id="mov-kpi"></div>
+      <button class="btn-io btn-light" onclick="openRulesModal()" title="Reglas de categorización automática" style="margin-left:4px;font-size:14px;padding:4px 8px">⚙</button>
     </div>
     <div class="grid-container" id="mov-container"></div>
   </div>
 </main>
+
+<!-- Modal reglas de categorización -->
+<div class="rules-backdrop" id="rules-backdrop" onclick="if(event.target===this)closeRulesModal()">
+  <div class="rules-modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h3 style="margin:0">⚙ Reglas de categorización</h3>
+      <button onclick="closeRulesModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text-muted);line-height:1;padding:0">&times;</button>
+    </div>
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Reglas personalizadas (tienen prioridad)</div>
+    <div id="rules-list"></div>
+    <div class="rules-add">
+      <div style="width:100%;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">Nueva regla</div>
+      <input id="rule-keyword" class="rules-input" type="text" placeholder="Palabra clave (ej: SEQURA)" onkeydown="if(event.key==='Enter')addUserRule()">
+      <select id="rule-cat" class="rules-select" onchange="updateRuleTagOpts()">
+        <option value="gastos">Gastos</option>
+        <option value="ingresos">Ingresos</option>
+        <option value="interno">Interno</option>
+      </select>
+      <select id="rule-tag" class="rules-select"></select>
+      <button class="btn-io btn-light" onclick="addUserRule()">Añadir</button>
+    </div>
+  </div>
+</div>
 
 <script>
   let state = { ingresos: [], gastos: [], activos: [], pasivos: [] };
@@ -816,7 +884,7 @@
       const res = await fetch(url, {
         method: 'PUT',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...state, movimientos, movimientos2 })
+        body: JSON.stringify({ ...state, movimientos, movimientos2, movimientos3, userMovRules })
       });
       if (res.ok) { markClean(); setStatus('✓ Guardado', 'ok'); }
       else setStatus('Error ' + res.status, 'err');
@@ -879,10 +947,12 @@
       if (!res.ok) { setStatus('Error ' + res.status, 'err'); return; }
       const data = await res.json();
       if (data.ingresos && data.gastos && data.activos && data.pasivos) {
-        const { movimientos: mov, movimientos2: mov2, ...rest } = data;
+        const { movimientos: mov, movimientos2: mov2, movimientos3: mov3, userMovRules: umr, ...rest } = data;
         state = rest;
         if (Array.isArray(mov))  { movimientos  = mov; }
         if (Array.isArray(mov2)) { movimientos2 = mov2; }
+        if (Array.isArray(mov3)) { movimientos3 = mov3; }
+        if (Array.isArray(umr))  { userMovRules = umr; }
         updatePeriodPills(1);
         render();
         setStatus('✓ Cargado', 'ok');
@@ -934,6 +1004,8 @@
   // ── Movimientos ──────────────────────────────────────────────
   let movimientos  = [];
   let movimientos2 = [];
+  let movimientos3 = [];
+  let userMovRules = []; // reglas personalizadas de categorización
   // filtros movimientos
 
   const movRules = [
@@ -995,10 +1067,55 @@
 
   function autoCateg(desc, detalle, importe) {
     const text = ((desc || '') + ' ' + (detalle || '')).toLowerCase();
+    for (const r of userMovRules) {
+      if (text.includes(r.k.toLowerCase())) return { cat: r.cat, tag: r.tag };
+    }
     for (const r of movRules) {
       if (r.k.some(k => text.includes(k))) return { cat: r.cat, tag: r.tag };
     }
     return importe > 0 ? { cat:'ingresos', tag:'Variable' } : { cat:'gastos', tag:'Personal' };
+  }
+
+  // ── Modal de reglas de categorización ────────────────────────
+  function openRulesModal() {
+    document.getElementById('rules-backdrop').classList.add('open');
+    renderRulesModal();
+    updateRuleTagOpts();
+  }
+  function closeRulesModal() {
+    document.getElementById('rules-backdrop').classList.remove('open');
+  }
+  function updateRuleTagOpts() {
+    const cat = document.getElementById('rule-cat')?.value || 'gastos';
+    const tags = cat === 'interno' ? ['Transferencia', 'Fianza'] : (tagsByCategory[cat] || []);
+    document.getElementById('rule-tag').innerHTML = tags.map(t => `<option value="${t}">${t}</option>`).join('');
+  }
+  function renderRulesModal() {
+    const list = document.getElementById('rules-list');
+    if (!userMovRules.length) {
+      list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px 0">No hay reglas personalizadas</div>';
+      return;
+    }
+    list.innerHTML = userMovRules.map((r, i) => `
+      <div class="rules-row">
+        <span style="flex:1"><strong>${r.k}</strong> <span style="color:var(--text-muted)">→ ${r.cat} / ${r.tag}</span></span>
+        <button onclick="deleteUserRule(${i})" style="background:none;border:none;cursor:pointer;color:var(--neg);font-size:14px;padding:0 4px" title="Eliminar">✕</button>
+      </div>`).join('');
+  }
+  function addUserRule() {
+    const k = (document.getElementById('rule-keyword').value || '').trim();
+    const cat = document.getElementById('rule-cat').value;
+    const tag = document.getElementById('rule-tag').value;
+    if (!k || !cat || !tag) return;
+    userMovRules.push({ k, cat, tag });
+    document.getElementById('rule-keyword').value = '';
+    renderRulesModal();
+    markDirty();
+  }
+  function deleteUserRule(i) {
+    userMovRules.splice(i, 1);
+    renderRulesModal();
+    markDirty();
   }
 
   function parseCSV(text) {
@@ -1016,9 +1133,26 @@
     }).filter(Boolean);
   }
 
+  function parseSantanderCSV(text) {
+    // Formato Santander: FECHA OPERACIÓN;FECHA VALOR;CONCEPTO;IMPORTE EUR;SALDO;
+    // Col 0=fecha, Col 2=desc, Col 3=importe (sin columna detalle)
+    const lines = text.trim().split('\n').slice(1); // skip header
+    return lines.map(line => {
+      const parts = line.split(';');
+      if (parts.length < 4) return null;
+      const fecha   = parts[0].trim();
+      const desc    = parts[2].trim();
+      const importe = parseFloat((parts[3] || '0').trim().replace(/\./g,'').replace(',','.'));
+      if (isNaN(importe) || !fecha) return null;
+      const { cat, tag } = autoCateg(desc, '', importe);
+      return { fecha, desc, detalle: '', importe, cat, tag };
+    }).filter(Boolean);
+  }
+
   function clearMovimientos(acct) {
     if (acct === 1) movimientos = [];
-    else movimientos2 = [];
+    else if (acct === 2) movimientos2 = [];
+    else movimientos3 = [];
     updatePeriodPills(1);
     renderMovimientos();
   }
@@ -1029,9 +1163,13 @@
     const reader = new FileReader();
     reader.onload = e => {
       // Reemplaza completamente — no mezcla con ediciones previas
-      const parsed = parseCSV(e.target.result);
-      if (acct === 1) movimientos = parsed;
-      else movimientos2 = parsed;
+      if (acct === 3) {
+        movimientos3 = parseSantanderCSV(e.target.result);
+      } else {
+        const parsed = parseCSV(e.target.result);
+        if (acct === 1) movimientos = parsed;
+        else movimientos2 = parsed;
+      }
       updatePeriodPills(1);
       renderMovimientos();
     };
@@ -1040,7 +1178,7 @@
   }
 
   function updatePeriodPills() {
-    const all = [...movimientos, ...movimientos2];
+    const all = [...movimientos, ...movimientos2, ...movimientos3];
     // Años
     const yearSel = document.getElementById('mov-year-filter');
     if (yearSel) {
@@ -1081,7 +1219,7 @@
   }
 
   function updateMovTag(idx, newTag, newCat, acct = 1) {
-    const arr = acct === 1 ? movimientos : movimientos2;
+    const arr = acct === 1 ? movimientos : acct === 2 ? movimientos2 : movimientos3;
     arr[idx].tag = newTag;
     arr[idx].cat = newCat;
     renderMovimientos();
@@ -1090,7 +1228,7 @@
   function renderMovimientos() {
     const container = document.getElementById('mov-container');
     const kpiEl     = document.getElementById('mov-kpi');
-    if (!movimientos.length && !movimientos2.length) {
+    if (!movimientos.length && !movimientos2.length && !movimientos3.length) {
       container.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px;grid-column:1/-1">
         Importa un CSV de tu banco para ver los movimientos
       </div>`;
@@ -1119,7 +1257,8 @@
 
     const filtered1 = filterArr(movimientos,  1);
     const filtered2 = filterArr(movimientos2, 2);
-    const filtered  = [...filtered1, ...filtered2];
+    const filtered3 = filterArr(movimientos3, 3);
+    const filtered  = [...filtered1, ...filtered2, ...filtered3];
 
     function importeEfectivo(m) {
       if (!m.amortizar) return m.importe;
@@ -1129,8 +1268,8 @@
     }
 
     // Totales KPI — misma lógica que las cabeceras de columna
-    const totI = filtered.filter(m => m.cat === 'ingresos' || m.cat === 'interno').reduce((s,m) => s + importeEfectivo(m), 0);
-    const totG = filtered.filter(m => m.cat === 'gastos').reduce((s,m) => s + Math.abs(importeEfectivo(m)), 0);
+    const totI = Math.abs(filtered.filter(m => m.cat === 'ingresos' || m.cat === 'interno').reduce((s,m) => s + importeEfectivo(m), 0));
+    const totG = Math.abs(filtered.filter(m => m.cat === 'gastos').reduce((s,m) => s + importeEfectivo(m), 0));
     kpiEl.innerHTML = `
       <span><span>Ingresos</span> <strong class="txt-pos">${fmt(totI)}</strong></span>
       <span><span>Gastos</span> <strong class="txt-neg">${fmt(totG)}</strong></span>
@@ -1147,6 +1286,11 @@
       const key = m.cat + '|' + m.tag;
       if (!groups[key]) groups[key] = { cat: m.cat, tag: m.tag, items: [] };
       groups[key].items.push({ ...m, acct: 2, origIdx: movimientos2.indexOf(m) });
+    });
+    filtered3.forEach(m => {
+      const key = m.cat + '|' + m.tag;
+      if (!groups[key]) groups[key] = { cat: m.cat, tag: m.tag, items: [] };
+      groups[key].items.push({ ...m, acct: 3, origIdx: movimientos3.indexOf(m) });
     });
 
     const allTags = {
@@ -1166,8 +1310,8 @@
 
       let html = '<div class="card" style="overflow:hidden">';
       const colLabel = cats.includes('ingresos') ? 'INGRESOS' : 'GASTOS';
-      const colTotal = colGroups.reduce((s,g) =>
-        s + g.items.reduce((gs,m) => gs + (cats.includes('ingresos') ? importeEfectivo(m) : Math.abs(importeEfectivo(m))), 0), 0);
+      const colNetSum = colGroups.reduce((s,g) => s + g.items.reduce((gs,m) => gs + importeEfectivo(m), 0), 0);
+      const colTotal = Math.abs(colNetSum);
       html += `<div class="card-header"><h2>${colLabel}</h2><span class="tot-val">${fmt(colTotal)}</span></div>`;
 
       colGroups.forEach(g => {
@@ -1202,7 +1346,7 @@
                 `<option value="${c}|${t}" ${m.cat===c && m.tag===t ? 'selected':''}>${t}</option>`
               ).join('')}</optgroup>`).join('');
             const rowCls = m.cat === 'interno' ? 'mov-interno' : '';
-            const acctBadge = movimientos2.length ? `<span style="font-size:9px;color:var(--text-muted);margin-left:2px">[C${ac}]</span>` : '';
+            const acctBadge = (movimientos2.length || movimientos3.length) ? `<span style="font-size:9px;color:var(--text-muted);margin-left:2px">[C${ac}]</span>` : '';
             const amortLabel = (() => {
               if (!m.amortizar) return '';
               const [d, mo, y] = m.fecha.split('/');
@@ -1211,7 +1355,7 @@
             })();
             const impEf = importeEfectivo(m);
             const isEditing = movEditando === editKey;
-            const arr = ac === 1 ? 'movimientos' : 'movimientos2';
+            const arr = ac === 1 ? 'movimientos' : ac === 2 ? 'movimientos2' : 'movimientos3';
 
             if (isEditing) {
               const descEsc = (m.desc || '').replace(/"/g,'&quot;');
