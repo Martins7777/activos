@@ -903,11 +903,11 @@
   // ── Cargar estado de secciones expandidas ──────────────────────────
   const savedExpandedGroups = localStorage.getItem('ams_expanded_groups');
   if (savedExpandedGroups) {
-    try {
-      expandedGroups = JSON.parse(savedExpandedGroups);
-    } catch (e) {
-      expandedGroups = {};
-    }
+    try { expandedGroups = JSON.parse(savedExpandedGroups); } catch (e) { expandedGroups = {}; }
+  }
+  const savedExpandedMovGroups = localStorage.getItem('ams_expanded_mov_groups');
+  if (savedExpandedMovGroups) {
+    try { expandedMovGroups = JSON.parse(savedExpandedMovGroups); } catch (e) { expandedMovGroups = {}; }
   }
 
   // Auto-fetch si hay config guardada
@@ -1069,6 +1069,7 @@
 
   function toggleMovGroup(key) {
     expandedMovGroups[key] = !expandedMovGroups[key];
+    localStorage.setItem('ams_expanded_mov_groups', JSON.stringify(expandedMovGroups));
     renderMovimientos();
   }
 
