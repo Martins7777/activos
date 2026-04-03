@@ -440,9 +440,35 @@
       background: white;
       color: var(--text);
       flex-shrink: 0;
+      width: 75%;
+      max-width: 90px;
     }
     .mov-importe { font-weight: 700; text-align: right; flex-shrink: 0; width: 72px; font-size: 12px; }
     .mov-interno { opacity: 0.4; }
+    .mov-desc-input {
+      font-family: inherit;
+      font-size: 12px;
+      border: none;
+      border-bottom: 1px solid var(--brand);
+      background: transparent;
+      color: var(--text);
+      flex: 1;
+      min-width: 0;
+      outline: none;
+      padding: 0;
+    }
+    .mov-edit-panel {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px 4px 12px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .mov-amort-check { accent-color: var(--brand); cursor: pointer; }
+    .mov-amort-label { cursor: pointer; }
 
     @media (max-width: 640px) {
       .grid-container { grid-template-columns: 1fr; }
@@ -526,7 +552,7 @@
       </select>
       <div class="mov-kpi" id="mov-kpi"></div>
     </div>
-    <div id="mov-container"></div>
+    <div class="grid-container" id="mov-container"></div>
   </div>
 </main>
 
@@ -535,6 +561,7 @@
   let expandedGroups = {}; // Guardar estado expandido por grupo: "cat-gIdx" => true/false
   let expandedMovGroups = {}; // Estado expandido de grupos en Movimientos
   let sortMovGroups = {};     // Orden de cada grupo: 'fecha'|'asc'|'desc'
+  let movEditando = null;     // origIdx del movimiento en edición
 
   const tagsByCategory = {
     ingresos: ['Trabajo', 'Renta', 'Variable', 'Otros'],
@@ -972,7 +999,7 @@
     const container = document.getElementById('mov-container');
     const kpiEl     = document.getElementById('mov-kpi');
     if (!movimientos.length) {
-      container.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">
+      container.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px;grid-column:1/-1">
         Importa un CSV de tu banco para ver los movimientos
       </div>`;
       kpiEl.innerHTML = '';
@@ -980,31 +1007,41 @@
     }
 
     const period = document.getElementById('mov-period').value;
+    const [filterY, filterM] = period ? period.split('-') : [null, null];
+
+    // Calcular importe efectivo teniendo en cuenta amortización anual
+    function importeEfectivo(m) {
+      if (!m.amortizar) return m.importe;
+      const [d, mo, y] = m.fecha.split('/');
+      if (filterY && filterY !== y) return 0;
+      return m.importe / 12;
+    }
+
     const filtered = period
-      ? movimientos.filter(m => { const [d,mo,y]=m.fecha.split('/'); return `${y}-${mo}` === period; })
+      ? movimientos.filter(m => {
+          if (m.amortizar) {
+            const [d, mo, y] = m.fecha.split('/');
+            return filterY === y; // mostrar en todos los meses del año
+          }
+          const [d, mo, y] = m.fecha.split('/');
+          return `${y}-${mo}` === period;
+        })
       : movimientos;
 
     // Totales KPI
-    const totI = filtered.filter(m => m.cat === 'ingresos').reduce((s,m) => s+m.importe, 0);
-    const totG = filtered.filter(m => m.cat === 'gastos').reduce((s,m) => s+Math.abs(m.importe), 0);
+    const totI = filtered.filter(m => m.cat === 'ingresos').reduce((s,m) => s + importeEfectivo(m), 0);
+    const totG = filtered.filter(m => m.cat === 'gastos').reduce((s,m) => s + Math.abs(importeEfectivo(m)), 0);
     kpiEl.innerHTML = `
       <span><span>Ingresos</span> <strong class="txt-pos">${fmt(totI)}</strong></span>
       <span><span>Gastos</span> <strong class="txt-neg">${fmt(totG)}</strong></span>
       <span><span>Balance</span> <strong class="${totI-totG>=0?'txt-pos':'txt-neg'}">${fmt(totI-totG)}</strong></span>`;
 
-    // Agrupar: ingresos por tag, gastos por tag, interno
+    // Agrupar por cat+tag
     const groups = {};
-    filtered.forEach((m, idx) => {
+    filtered.forEach(m => {
       const key = m.cat + '|' + m.tag;
       if (!groups[key]) groups[key] = { cat: m.cat, tag: m.tag, items: [] };
       groups[key].items.push({ ...m, origIdx: movimientos.indexOf(m) });
-    });
-
-    // Orden: ingresos primero, luego gastos, luego interno
-    const order = { ingresos: 0, gastos: 1, interno: 2 };
-    const sorted = Object.values(groups).sort((a,b) => {
-      if (order[a.cat] !== order[b.cat]) return order[a.cat] - order[b.cat];
-      return a.tag.localeCompare(b.tag);
     });
 
     const allTags = {
@@ -1013,48 +1050,104 @@
       interno:  ['Transferencia', 'Fianza'],
     };
 
-    let html = '<div class="card" style="overflow:hidden">';
-    sorted.forEach(g => {
-      const gKey = g.cat + '|' + g.tag;
-      const isExpanded = expandedMovGroups[gKey] !== false;
-      const sortMode = sortMovGroups[gKey] || 'fecha';
-      const gTotal = g.items.reduce((s,m) => s + m.importe, 0);
-      const colorCls = g.cat === 'ingresos' ? 'txt-pos' : g.cat === 'gastos' ? 'txt-neg' : '';
-      const sortLabel = sortMode === 'fecha' ? '↕ importe' : sortMode === 'desc' ? '↓ mayor' : '↑ menor';
-      html += `<div class="mov-group-header" style="cursor:pointer" onclick="toggleMovGroup('${gKey}')">
-        <span style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:10px;color:var(--text-muted);transition:transform 0.2s;display:inline-block;transform:${isExpanded?'':'rotate(-90deg)'}">▼</span>
-          ${g.cat === 'interno' ? 'INTERNO' : g.cat.toUpperCase()} · ${g.tag}
-        </span>
-        <span style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:10px;color:var(--text-muted);font-weight:500;text-transform:none;letter-spacing:0" onclick="toggleMovSort('${gKey}',event)">${sortLabel}</span>
-          <span class="mov-group-total ${colorCls}">${fmt(gTotal)}</span>
-        </span>
+    function buildColumn(cats) {
+      const order = { ingresos: 0, gastos: 1, interno: 2 };
+      const colGroups = Object.values(groups)
+        .filter(g => cats.includes(g.cat))
+        .sort((a,b) => {
+          if (order[a.cat] !== order[b.cat]) return order[a.cat] - order[b.cat];
+          return a.tag.localeCompare(b.tag);
+        });
+
+      let html = '<div class="card" style="overflow:hidden">';
+      const colLabel = cats.includes('ingresos') ? 'INGRESOS' : 'GASTOS';
+      const colColor = cats.includes('ingresos') ? 'var(--pos)' : 'var(--neg)';
+      const colTotal = colGroups.reduce((s,g) =>
+        s + g.items.reduce((gs,m) => gs + (cats.includes('ingresos') ? importeEfectivo(m) : Math.abs(importeEfectivo(m))), 0), 0);
+      html += `<div class="card-header">
+        <h2>${colLabel}</h2>
+        <span class="tot-val">${fmt(colTotal)}</span>
       </div>`;
 
-      if (isExpanded) {
-        let items = [...g.items];
-        if (sortMode === 'desc') items.sort((a,b) => Math.abs(b.importe) - Math.abs(a.importe));
-        else if (sortMode === 'asc') items.sort((a,b) => Math.abs(a.importe) - Math.abs(b.importe));
-        items.forEach(m => {
-          const catOpts = ['ingresos','gastos','interno'].map(c =>
-            `<optgroup label="${c}">${(allTags[c]||[]).map(t =>
-              `<option value="${c}|${t}" ${m.cat===c && m.tag===t ? 'selected':''}>${t}</option>`
-            ).join('')}</optgroup>`).join('');
-          const rowCls = m.cat === 'interno' ? 'mov-interno' : '';
-          html += `<div class="mov-row ${rowCls}">
-            <span class="mov-fecha">${m.fecha.slice(0,5)}</span>
-            <span class="mov-desc" title="${m.desc}${m.detalle ? ' · '+m.detalle : ''}">${m.desc}${m.detalle ? ' <span style="color:var(--text-muted);font-size:10px">· '+m.detalle+'</span>' : ''}</span>
-            <select class="mov-tag-sel" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${m.origIdx},t,c)})(this)">
-              ${catOpts}
-            </select>
-            <span class="mov-importe ${m.importe>=0?'txt-pos':'txt-neg'}">${fmt(m.importe)}</span>
-          </div>`;
-        });
+      colGroups.forEach(g => {
+        const gKey = g.cat + '|' + g.tag;
+        const isExpanded = expandedMovGroups[gKey] !== false;
+        const sortMode = sortMovGroups[gKey] || 'fecha';
+        const gTotal = g.items.reduce((s,m) => s + importeEfectivo(m), 0);
+        const colorCls = g.cat === 'ingresos' ? 'txt-pos' : g.cat === 'gastos' ? 'txt-neg' : '';
+        const sortLabel = sortMode === 'fecha' ? '↕' : sortMode === 'desc' ? '↓' : '↑';
+
+        html += `<div class="group-title-row" style="cursor:pointer" onclick="toggleMovGroup('${gKey}')">
+          <span class="group-toggle ${!isExpanded ? 'collapsed' : ''}">▼</span>
+          <span style="flex:1;font-size:11px;font-weight:700;color:var(--text)">${g.tag}</span>
+          <span style="font-size:10px;color:var(--text-muted);margin-right:8px" onclick="toggleMovSort('${gKey}',event)" title="Ordenar">${sortLabel}</span>
+          <span class="group-sum ${colorCls}">${fmt(Math.abs(gTotal))}</span>
+        </div>`;
+
+        if (isExpanded) {
+          let items = [...g.items];
+          if (sortMode === 'desc') items.sort((a,b) => Math.abs(b.importe) - Math.abs(a.importe));
+          else if (sortMode === 'asc') items.sort((a,b) => Math.abs(a.importe) - Math.abs(b.importe));
+
+          items.forEach(m => {
+            const oi = m.origIdx;
+            const catOpts = ['ingresos','gastos','interno'].map(c =>
+              `<optgroup label="${c}">${(allTags[c]||[]).map(t =>
+                `<option value="${c}|${t}" ${m.cat===c && m.tag===t ? 'selected':''}>${t}</option>`
+              ).join('')}</optgroup>`).join('');
+            const rowCls = m.cat === 'interno' ? 'mov-interno' : '';
+            const amortBadge = m.amortizar ? ' <span style="font-size:9px;background:#e0f2fe;color:#0369a1;border-radius:3px;padding:1px 4px">÷12</span>' : '';
+            const impEf = importeEfectivo(m);
+            const isEditing = movEditando === oi;
+
+            if (isEditing) {
+              const descEsc = (m.desc || '').replace(/"/g,'&quot;');
+              html += `<div class="mov-row ${rowCls}" style="flex-wrap:wrap;gap:4px">
+                <span class="mov-fecha">${m.fecha.slice(0,5)}</span>
+                <input class="mov-desc-input" value="${descEsc}"
+                  onchange="movimientos[${oi}].desc=this.value"
+                  onblur="movEditando=null;renderMovimientos()"
+                  onkeydown="if(event.key==='Enter'){movEditando=null;renderMovimientos()}"
+                  id="mov-edit-${oi}">
+                <select class="mov-tag-sel" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${oi},t,c)})(this)">
+                  ${catOpts}
+                </select>
+                <span class="mov-importe ${impEf>=0?'txt-pos':'txt-neg'}">${fmt(impEf)}</span>
+              </div>
+              <div class="mov-edit-panel">
+                <input type="checkbox" class="mov-amort-check" id="amort-${oi}"
+                  ${m.amortizar?'checked':''}
+                  onchange="movimientos[${oi}].amortizar=this.checked;renderMovimientos()">
+                <label class="mov-amort-label" for="amort-${oi}">Amortizar en el año (÷12 meses)</label>
+              </div>`;
+            } else {
+              html += `<div class="mov-row ${rowCls}">
+                <span class="mov-fecha">${m.fecha.slice(0,5)}</span>
+                <span class="mov-desc" style="cursor:text" onclick="movEditando=${oi};renderMovimientos()" title="Click para editar">${m.desc}${amortBadge}</span>
+                <select class="mov-tag-sel" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${oi},t,c)})(this)">
+                  ${catOpts}
+                </select>
+                <span class="mov-importe ${impEf>=0?'txt-pos':'txt-neg'}">${fmt(impEf)}</span>
+              </div>`;
+            }
+          });
+        }
+      });
+
+      if (colGroups.length === 0) {
+        html += `<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:11px">Sin movimientos</div>`;
       }
-    });
-    html += '</div>';
-    container.innerHTML = html;
+      html += '</div>';
+      return html;
+    }
+
+    container.innerHTML = buildColumn(['ingresos','interno']) + buildColumn(['gastos']);
+
+    // Focus en input si estamos editando
+    if (movEditando !== null) {
+      const inp = document.getElementById(`mov-edit-${movEditando}`);
+      if (inp) { inp.focus(); inp.select(); }
+    }
   }
 
   // ── Ratios ──────────────────────────────────────────────────
