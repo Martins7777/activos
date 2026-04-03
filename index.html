@@ -702,7 +702,7 @@
 
   const tagsByCategory = {
     ingresos: ['Trabajo', 'Renta', 'Variable', 'Otros'],
-    gastos:   ['Hipoteca', 'Préstamo', 'Propiedad', 'Personal', 'Inversión', 'Microgasto'],
+    gastos:   ['Hipoteca', 'Préstamo', 'Mantenimiento propiedades', 'Personal', 'Inversión', 'Inversión propiedades', 'Microgasto'],
     activos:  ['Inmobiliario', 'Financiero', 'Liquidez', 'Pensión'],
     pasivos:  ['Hipoteca', 'Préstamo', 'Tarjeta']
   };
@@ -1032,9 +1032,9 @@
     { k:['pago transferencias 2650-56-0006112'], cat:'gastos', tag:'Préstamo' },
     // Gastos - Inversión
     { k:['pago traspasos 2650-56-0005099'], cat:'gastos', tag:'Inversión' },
-    // Gastos - Propiedad
+    // Gastos - Mantenimiento propiedades
     { k:['mutua madrile','itv guimar','taller davila','serv.const.fianza',
-         'colegio de regist','ayto.de madrid','ajunt.de'], cat:'gastos', tag:'Propiedad' },
+         'colegio de regist','ayto.de madrid','ajunt.de'], cat:'gastos', tag:'Mantenimiento propiedades' },
     // Gastos - Personal (supermercados)
     { k:['lidl','mercadona','carrefour','aldi ','spar ','supercor','alcampo','maskom',
          'supermercados','minimarket'], cat:'gastos', tag:'Personal' },
@@ -1451,7 +1451,7 @@
 
     const hipG  = byTag('gastos',   ['Hipoteca']);
     const preG  = byTag('gastos',   ['Préstamo']);
-    const propG = byTag('gastos',   ['Propiedad']);
+    const propG = byTag('gastos',   ['Mantenimiento propiedades']);
     const trabI = byTag('ingresos', ['Trabajo']);
     const rentI = byTag('ingresos', ['Renta']);
     const liq   = byTag('activos',  ['Liquidez']);
@@ -1467,8 +1467,8 @@
         legend: `${nv('gastos',['Hipoteca','Préstamo'])} / ${nv('ingresos',['Trabajo','Renta'])}`,
         value: ingDem > 0 ? cirbe   / ingDem : 0, fmt:'%', limit:0.35, dir:'lower',  obj:'< 35%' },
       { name: 'Tasa esfuerzo real',
-        tags:   'Hipoteca + Préstamo + Propiedad / Trabajo + Renta',
-        legend: `${nv('gastos',['Hipoteca','Préstamo','Propiedad'])} / ${nv('ingresos',['Trabajo','Renta'])}`,
+        tags:   'Hipoteca + Préstamo + Mantenimiento propiedades / Trabajo + Renta',
+        legend: `${nv('gastos',['Hipoteca','Préstamo','Mantenimiento propiedades'])} / ${nv('ingresos',['Trabajo','Renta'])}`,
         value: ingDem > 0 ? esfReal / ingDem : 0, fmt:'%', limit:0.40, dir:'lower',  obj:'< 40%' },
       { name: 'Tasa de ahorro',
         tags:   'Ingresos − Gastos / Ingresos',
