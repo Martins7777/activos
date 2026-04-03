@@ -381,11 +381,75 @@
     .ratio-bar { height: 100%; border-radius: 4px; transition: width 0.4s; }
     .ratio-formula { font-size: 10px; color: var(--text-muted); }
 
+    /* ── Movimientos ── */
+    .mov-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .mov-period {
+      font-family: inherit;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 5px 8px;
+      background: white;
+      color: var(--text);
+    }
+    .mov-kpi {
+      margin-left: auto;
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+    }
+    .mov-kpi span { color: var(--text-muted); }
+    .mov-kpi strong { font-weight: 700; }
+    .mov-group-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 12px;
+      background: #f1f5f9;
+      border-bottom: 1px solid var(--border);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+    .mov-group-header .mov-group-total { font-size: 12px; color: var(--text); }
+    .mov-row {
+      display: flex;
+      align-items: center;
+      padding: 5px 12px;
+      border-bottom: 1px solid #f8fafc;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .mov-row:hover { background: #f8fafc; }
+    .mov-fecha { color: var(--text-muted); font-size: 11px; flex-shrink: 0; width: 72px; }
+    .mov-desc { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mov-tag-sel {
+      font-family: inherit;
+      font-size: 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 4px;
+      background: white;
+      color: var(--text);
+      flex-shrink: 0;
+    }
+    .mov-importe { font-weight: 700; text-align: right; flex-shrink: 0; width: 72px; font-size: 12px; }
+    .mov-interno { opacity: 0.4; }
+
     @media (max-width: 640px) {
       .grid-container { grid-template-columns: 1fr; }
       .col-tag { width: 56px; }
       .col-val { width: 76px; }
       .ratios-grid { grid-template-columns: 1fr; }
+      .mov-kpi { margin-left: 0; width: 100%; }
     }
   </style>
 </head>
@@ -436,6 +500,7 @@
   <div class="tab-nav">
     <button class="tab-btn active" id="tab-btn-posicion" onclick="switchTab('posicion')">Posición</button>
     <button class="tab-btn" id="tab-btn-analisis" onclick="switchTab('analisis')">Análisis</button>
+    <button class="tab-btn" id="tab-btn-movimientos" onclick="switchTab('movimientos')">Movimientos</button>
   </div>
 
   <div id="tab-posicion">
@@ -450,6 +515,18 @@
   <div id="tab-analisis" style="display:none">
     <div class="ratios-grid" id="ratios-container"></div>
     <div id="audit-container" style="margin-top:16px"></div>
+  </div>
+
+  <div id="tab-movimientos" style="display:none">
+    <input type="file" id="csvInput" accept=".csv" style="display:none" onchange="importCSV(this)">
+    <div class="mov-toolbar">
+      <button class="btn-io" onclick="document.getElementById('csvInput').click()">↑ Importar CSV</button>
+      <select class="mov-period" id="mov-period" onchange="renderMovimientos()">
+        <option value="">Todos los periodos</option>
+      </select>
+      <div class="mov-kpi" id="mov-kpi"></div>
+    </div>
+    <div id="mov-container"></div>
   </div>
 </main>
 
@@ -744,9 +821,211 @@
     activeTab = tab;
     document.getElementById('tab-posicion').style.display = tab === 'posicion' ? '' : 'none';
     document.getElementById('tab-analisis').style.display = tab === 'analisis' ? '' : 'none';
+    document.getElementById('tab-movimientos').style.display = tab === 'movimientos' ? '' : 'none';
     document.getElementById('tab-btn-posicion').classList.toggle('active', tab === 'posicion');
     document.getElementById('tab-btn-analisis').classList.toggle('active', tab === 'analisis');
+    document.getElementById('tab-btn-movimientos').classList.toggle('active', tab === 'movimientos');
     if (tab === 'analisis') renderAnalisis();
+    if (tab === 'movimientos') renderMovimientos();
+  }
+
+  // ── Movimientos ──────────────────────────────────────────────
+  let movimientos = [];
+
+  const movRules = [
+    // Interno (traspasos entre cuentas propias, fianzas, ajustes)
+    { k:['traspasos propios','traspaso propio','transfer inmediata martin simon aldo',
+         'liberacion fianza','constitucion fianza','devolucion puja','devolucion walter',
+         'ajuste devolucion','palacio nov25','recibos varios','compra con tarjeta',
+         'devolucion compra','spending tabaiba','cond.cuota tarjeta','cuota t. debit',
+         'traspaso propio;caix'], cat:'interno', tag:'Transferencia' },
+    // Ingresos - Trabajo (transferencias nómina propias: 00491770-MARTIN SIMON ALDO)
+    { k:['00491770-martin simon aldo','martin simon aldo'], cat:'ingresos', tag:'Trabajo' },
+    // Ingresos - Renta (alquileres, ingresos fijos de terceros)
+    { k:['00750167-dominguez riesco'], cat:'ingresos', tag:'Renta' },
+    // Ingresos - Variable (bizum, transferencias de otros)
+    { k:['bizum recibido'], cat:'ingresos', tag:'Variable' },
+    { k:['21033240-ruben diaz','14650100-miguel angel hernando','21033025-alba sanchez',
+         '20858068-moreno cerezo','00495189-cortes serrano','01825322-aldo martin simon',
+         '00730100-vasquez abella'], cat:'ingresos', tag:'Variable' },
+    // Ingresos - Otros (devoluciones, reembolsos)
+    { k:['alberto martin ge','2.plazo irpf'], cat:'ingresos', tag:'Otros' },
+    // Gastos - Préstamo
+    { k:['sequra'], cat:'gastos', tag:'Préstamo' },
+    { k:['pago transferencias 2650-56-0002713'], cat:'gastos', tag:'Préstamo' },
+    { k:['pago transferencias 2650-56-0006112'], cat:'gastos', tag:'Préstamo' },
+    // Gastos - Ahorro
+    { k:['pago traspasos 2650-56-0005099'], cat:'gastos', tag:'Ahorro' },
+    // Gastos - Propiedad
+    { k:['mutua madrile','itv guimar','taller davila','serv.const.fianza',
+         'colegio de regist','ayto.de madrid','ajunt.de'], cat:'gastos', tag:'Propiedad' },
+    // Gastos - Personal (supermercados)
+    { k:['lidl','mercadona','carrefour','aldi ','spar ','supercor','alcampo','maskom',
+         'supermercados','minimarket'], cat:'gastos', tag:'Personal' },
+    // Gastos - Personal (suscripciones)
+    { k:['spotify','google one','openai','chatgpt','claude.ai','wellhub','kraftwerk',
+         'amazon prime','sny box','snny crossfit'], cat:'gastos', tag:'Personal' },
+    // Gastos - Personal (deporte)
+    { k:['crossfit','hybrid day','decathlon','multitienda olymp'], cat:'gastos', tag:'Personal' },
+    // Gastos - Personal (viajes/transporte)
+    { k:['vueling','iberia','ryanair','ouigo','renfe','naviera armas','fred.olsen',
+         'bolt.eu','easypark','nyx*airserv','cronos renfe','empresa municipal','sagulpa'], cat:'gastos', tag:'Personal' },
+    // Gastos - Personal (gasolina)
+    { k:['plenergy','cedipsa','cepsa ','estacion serv','e.s. las','e.s. shell',
+         'h2exagon','us016b','us016ca','us246ca','us16b'], cat:'gastos', tag:'Personal' },
+    // Gastos - Personal (restaurantes/bares)
+    { k:['bar ','cafe ','cafeteria','restaurante','pingoneo','standard coffee',
+         'nordis coffee','nescafe','marisma planta','table n ','faborit','komilona',
+         'mostazza','factory gelat','kuups','jardin del mar','cerveceria','skinazo',
+         'productores de so','tabaiba plaza','granier','922 food','sol ','pub ',
+         'bar la','bar el','bar caf','bar ranea','bar soles','bar exlor',
+         'cafeteria brillan','cafeteria la ria','cafeteria mi bar'], cat:'gastos', tag:'Personal' },
+    // Gastos - Personal (otros)
+    { k:['bizum enviado'], cat:'gastos', tag:'Personal' },
+    { k:['amazon','temu','paypal','mediamarkt','media markt','agapea','chinatown',
+         'sols cabell','bazar','fcia.','farmacia','tickety','vip district','ibex dual',
+         'hd caletillas','hdx playa','ab servicios','islenio','yassine','flippers',
+         'allday oasis','talaso','distribuciones ta','naviera','fred.','hsn store',
+         'pkiflyers','mostazza'], cat:'gastos', tag:'Personal' },
+  ];
+
+  function autoCateg(desc, detalle, importe) {
+    const text = ((desc || '') + ' ' + (detalle || '')).toLowerCase();
+    for (const r of movRules) {
+      if (r.k.some(k => text.includes(k))) return { cat: r.cat, tag: r.tag };
+    }
+    return importe > 0 ? { cat:'ingresos', tag:'Variable' } : { cat:'gastos', tag:'Personal' };
+  }
+
+  function parseCSV(text) {
+    const lines = text.trim().split('\n').slice(1); // skip header
+    return lines.map(line => {
+      const parts = line.split(';');
+      if (parts.length < 5) return null;
+      const fecha   = parts[0].trim();
+      const desc    = parts[2].trim();
+      const detalle = parts[3].trim();
+      const importe = parseFloat((parts[4] || '0').trim().replace(/\./g,'').replace(',','.'));
+      if (isNaN(importe)) return null;
+      const { cat, tag } = autoCateg(desc, detalle, importe);
+      return { fecha, desc, detalle, importe, cat, tag };
+    }).filter(Boolean);
+  }
+
+  function importCSV(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const parsed = parseCSV(e.target.result);
+      movimientos = [...movimientos, ...parsed];
+      // Deduplicar por fecha+desc+importe
+      const seen = new Set();
+      movimientos = movimientos.filter(m => {
+        const key = m.fecha + '|' + m.desc + '|' + m.importe;
+        if (seen.has(key)) return false;
+        seen.add(key); return true;
+      });
+      updatePeriodFilter();
+      renderMovimientos();
+    };
+    reader.readAsText(file, 'ISO-8859-1');
+    input.value = '';
+  }
+
+  function updatePeriodFilter() {
+    const sel = document.getElementById('mov-period');
+    const current = sel.value;
+    const months = [...new Set(movimientos.map(m => {
+      const [d, mo, y] = m.fecha.split('/');
+      return `${y}-${mo}`;
+    }))].sort().reverse();
+    sel.innerHTML = '<option value="">Todos los periodos</option>';
+    months.forEach(m => {
+      const [y, mo] = m.split('-');
+      const label = new Date(+y, +mo-1, 1).toLocaleDateString('es-ES', { month:'long', year:'numeric' });
+      sel.innerHTML += `<option value="${m}" ${m === current ? 'selected' : ''}>${label}</option>`;
+    });
+  }
+
+  function updateMovTag(idx, newTag, newCat) {
+    movimientos[idx].tag = newTag;
+    movimientos[idx].cat = newCat;
+    renderMovimientos();
+  }
+
+  function renderMovimientos() {
+    const container = document.getElementById('mov-container');
+    const kpiEl     = document.getElementById('mov-kpi');
+    if (!movimientos.length) {
+      container.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px">
+        Importa un CSV de tu banco para ver los movimientos
+      </div>`;
+      kpiEl.innerHTML = '';
+      return;
+    }
+
+    const period = document.getElementById('mov-period').value;
+    const filtered = period
+      ? movimientos.filter(m => { const [d,mo,y]=m.fecha.split('/'); return `${y}-${mo}` === period; })
+      : movimientos;
+
+    // Totales KPI
+    const totI = filtered.filter(m => m.cat === 'ingresos').reduce((s,m) => s+m.importe, 0);
+    const totG = filtered.filter(m => m.cat === 'gastos').reduce((s,m) => s+Math.abs(m.importe), 0);
+    kpiEl.innerHTML = `
+      <span><span>Ingresos</span> <strong class="txt-pos">${fmt(totI)}</strong></span>
+      <span><span>Gastos</span> <strong class="txt-neg">${fmt(totG)}</strong></span>
+      <span><span>Balance</span> <strong class="${totI-totG>=0?'txt-pos':'txt-neg'}">${fmt(totI-totG)}</strong></span>`;
+
+    // Agrupar: ingresos por tag, gastos por tag, interno
+    const groups = {};
+    filtered.forEach((m, idx) => {
+      const key = m.cat + '|' + m.tag;
+      if (!groups[key]) groups[key] = { cat: m.cat, tag: m.tag, items: [] };
+      groups[key].items.push({ ...m, origIdx: movimientos.indexOf(m) });
+    });
+
+    // Orden: ingresos primero, luego gastos, luego interno
+    const order = { ingresos: 0, gastos: 1, interno: 2 };
+    const sorted = Object.values(groups).sort((a,b) => {
+      if (order[a.cat] !== order[b.cat]) return order[a.cat] - order[b.cat];
+      return a.tag.localeCompare(b.tag);
+    });
+
+    const allTags = {
+      ingresos: tagsByCategory.ingresos,
+      gastos:   tagsByCategory.gastos,
+      interno:  ['Transferencia', 'Fianza'],
+    };
+
+    let html = '<div class="card" style="overflow:hidden">';
+    sorted.forEach(g => {
+      const gTotal = g.items.reduce((s,m) => s + m.importe, 0);
+      const colorCls = g.cat === 'ingresos' ? 'txt-pos' : g.cat === 'gastos' ? 'txt-neg' : '';
+      html += `<div class="mov-group-header">
+        <span>${g.cat === 'interno' ? 'INTERNO' : g.cat.toUpperCase()} · ${g.tag}</span>
+        <span class="mov-group-total ${colorCls}">${fmt(gTotal)}</span>
+      </div>`;
+
+      g.items.forEach(m => {
+        const catOpts = ['ingresos','gastos','interno'].map(c =>
+          `<optgroup label="${c}">${(allTags[c]||[]).map(t =>
+            `<option value="${c}|${t}" ${m.cat===c && m.tag===t ? 'selected':''}>${t}</option>`
+          ).join('')}</optgroup>`).join('');
+        const rowCls = m.cat === 'interno' ? 'mov-interno' : '';
+        html += `<div class="mov-row ${rowCls}">
+          <span class="mov-fecha">${m.fecha.slice(0,5)}</span>
+          <span class="mov-desc" title="${m.desc}${m.detalle ? ' · '+m.detalle : ''}">${m.desc}${m.detalle ? ' <span style="color:var(--text-muted);font-size:10px">· '+m.detalle+'</span>' : ''}</span>
+          <select class="mov-tag-sel" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${m.origIdx},t,c)})(this)">
+            ${catOpts}
+          </select>
+          <span class="mov-importe ${m.importe>=0?'txt-pos':'txt-neg'}">${fmt(m.importe)}</span>
+        </div>`;
+      });
+    });
+    html += '</div>';
+    container.innerHTML = html;
   }
 
   // ── Ratios ──────────────────────────────────────────────────
