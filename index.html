@@ -423,9 +423,6 @@
       color: var(--text);
       cursor: pointer;
     }
-    .mov-select[multiple] {
-      height: 80px;
-    }
     .mov-kpi {
       margin-left: auto;
       display: flex;
@@ -592,8 +589,10 @@
         </select>
       </div>
       <div class="mov-filter-group">
-        <span class="mov-filter-label">Meses (ctrl para varios)</span>
-        <select class="mov-select" id="mov-months-filter" multiple onchange="renderMovimientos()"></select>
+        <span class="mov-filter-label">Mes</span>
+        <select class="mov-select" id="mov-months-filter" onchange="renderMovimientos()">
+          <option value="">Todos</option>
+        </select>
       </div>
       <div class="mov-kpi" id="mov-kpi"></div>
     </div>
@@ -1015,19 +1014,18 @@
     input.value = '';
   }
 
-  function updatePeriodPills(acct) {
-    // Reconstruye el <select multiple> con todos los meses disponibles de ambas cuentas
+  function updatePeriodPills() {
     const sel = document.getElementById('mov-months-filter');
     if (!sel) return;
-    const selected = new Set([...sel.options].filter(o => o.selected).map(o => o.value));
+    const current = sel.value;
     const months = [...new Set([...movimientos, ...movimientos2].map(m => {
       const [d, mo, y] = m.fecha.split('/');
       return `${y}-${mo}`;
     }))].sort().reverse();
-    sel.innerHTML = months.map(p => {
+    sel.innerHTML = '<option value="">Todos</option>' + months.map(p => {
       const [y, mo] = p.split('-');
       const label = new Date(+y, +mo-1, 1).toLocaleDateString('es-ES', { month:'long', year:'numeric' });
-      return `<option value="${p}" ${selected.has(p) ? 'selected' : ''}>${label}</option>`;
+      return `<option value="${p}" ${p === current ? 'selected' : ''}>${label}</option>`;
     }).join('');
   }
 
@@ -1062,32 +1060,28 @@
     }
 
     // Leer filtros
-    const acctFilter  = document.getElementById('mov-acct-filter')?.value || '';
-    const monthsSel   = document.getElementById('mov-months-filter');
-    const selMonths   = new Set(monthsSel ? [...monthsSel.options].filter(o => o.selected).map(o => o.value) : []);
+    const acctFilter = document.getElementById('mov-acct-filter')?.value || '';
+    const selMonth   = document.getElementById('mov-months-filter')?.value || '';
+    const filterY    = selMonth ? selMonth.split('-')[0] : null;
 
     function filterArr(arr, acct) {
       if (acctFilter && acctFilter !== String(acct)) return [];
-      if (!selMonths.size) return arr;
+      if (!selMonth) return arr;
       return arr.filter(m => {
         const [d, mo, y] = m.fecha.split('/');
-        if (m.amortizar) return [...selMonths].some(p => p.startsWith(y + '-'));
-        return selMonths.has(`${y}-${mo}`);
+        if (m.amortizar) return y === filterY;
+        return `${y}-${mo}` === selMonth;
       });
     }
 
     const filtered1 = filterArr(movimientos,  1);
     const filtered2 = filterArr(movimientos2, 2);
-
-    // años activos para amortización
-    const activeYears = selMonths.size
-      ? new Set([...selMonths].map(p => p.split('-')[0]))
-      : new Set();
+    const filtered  = [...filtered1, ...filtered2];
 
     function importeEfectivo(m) {
       if (!m.amortizar) return m.importe;
       const [d, mo, y] = m.fecha.split('/');
-      if (activeYears.size && !activeYears.has(y)) return 0;
+      if (filterY && y !== filterY) return 0;
       return m.importe / 12;
     }
 
