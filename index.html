@@ -389,14 +389,42 @@
       margin-bottom: 14px;
       flex-wrap: wrap;
     }
-    .mov-period {
-      font-family: inherit;
-      font-size: 12px;
+    .mov-account-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .mov-account-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      flex-shrink: 0;
+      width: 60px;
+    }
+    .mov-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .mov-pill {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 10px;
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 5px 8px;
       background: white;
-      color: var(--text);
+      color: var(--text-muted);
+      cursor: pointer;
+      white-space: nowrap;
+      text-transform: capitalize;
+    }
+    .mov-pill.active {
+      background: var(--brand);
+      color: white;
+      border-color: var(--brand);
     }
     .mov-kpi {
       margin-left: auto;
@@ -544,13 +572,20 @@
   </div>
 
   <div id="tab-movimientos" style="display:none">
-    <input type="file" id="csvInput" accept=".csv" style="display:none" onchange="importCSV(this)">
-    <div class="mov-toolbar">
-      <button class="btn-io" onclick="document.getElementById('csvInput').click()">↑ Importar CSV</button>
-      <select class="mov-period" id="mov-period" onchange="renderMovimientos()">
-        <option value="">Todos los periodos</option>
-      </select>
-      <div class="mov-kpi" id="mov-kpi"></div>
+    <input type="file" id="csvInput" accept=".csv" style="display:none" onchange="importCSV(this,1)">
+    <input type="file" id="csvInput2" accept=".csv" style="display:none" onchange="importCSV(this,2)">
+    <div class="mov-toolbar" style="flex-direction:column;align-items:flex-start;gap:8px">
+      <div class="mov-account-row">
+        <span class="mov-account-label">Cuenta 1</span>
+        <button class="btn-io" onclick="document.getElementById('csvInput').click()">↑ Importar CSV</button>
+        <div class="mov-pills" id="mov-pills-1"></div>
+      </div>
+      <div class="mov-account-row">
+        <span class="mov-account-label">Cuenta 2</span>
+        <button class="btn-io" onclick="document.getElementById('csvInput2').click()">↑ Importar CSV</button>
+        <div class="mov-pills" id="mov-pills-2"></div>
+      </div>
+      <div class="mov-kpi" id="mov-kpi" style="margin-left:0;margin-top:4px"></div>
     </div>
     <div class="grid-container" id="mov-container"></div>
   </div>
@@ -747,7 +782,7 @@
       const res = await fetch(url, {
         method: 'PUT',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...state, movimientos })
+        body: JSON.stringify({ ...state, movimientos, movimientos2 })
       });
       if (res.ok) { markClean(); setStatus('✓ Guardado', 'ok'); }
       else setStatus('Error ' + res.status, 'err');
@@ -810,9 +845,10 @@
       if (!res.ok) { setStatus('Error ' + res.status, 'err'); return; }
       const data = await res.json();
       if (data.ingresos && data.gastos && data.activos && data.pasivos) {
-        const { movimientos: mov, ...rest } = data;
+        const { movimientos: mov, movimientos2: mov2, ...rest } = data;
         state = rest;
-        if (Array.isArray(mov)) { movimientos = mov; updatePeriodFilter(); }
+        if (Array.isArray(mov))  { movimientos  = mov;  updatePeriodPills(1); }
+        if (Array.isArray(mov2)) { movimientos2 = mov2; updatePeriodPills(2); }
         render();
         setStatus('✓ Cargado', 'ok');
       } else {
@@ -861,7 +897,10 @@
   }
 
   // ── Movimientos ──────────────────────────────────────────────
-  let movimientos = [];
+  let movimientos  = [];
+  let movimientos2 = [];
+  let selectedPeriods1 = new Set();
+  let selectedPeriods2 = new Set();
 
   const movRules = [
     // Interno (traspasos entre cuentas propias, fianzas, ajustes)
@@ -943,40 +982,62 @@
     }).filter(Boolean);
   }
 
-  function importCSV(input) {
+  function importCSV(input, acct = 1) {
     const file = input.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = e => {
       const parsed = parseCSV(e.target.result);
-      movimientos = [...movimientos, ...parsed];
-      // Deduplicar por fecha+desc+importe
+      const arr = acct === 1 ? movimientos : movimientos2;
+      const merged = [...arr, ...parsed];
       const seen = new Set();
-      movimientos = movimientos.filter(m => {
+      const deduped = merged.filter(m => {
         const key = m.fecha + '|' + m.desc + '|' + m.importe;
         if (seen.has(key)) return false;
         seen.add(key); return true;
       });
-      updatePeriodFilter();
+      if (acct === 1) movimientos = deduped;
+      else movimientos2 = deduped;
+      updatePeriodPills(acct);
       renderMovimientos();
     };
     reader.readAsText(file, 'ISO-8859-1');
     input.value = '';
   }
 
-  function updatePeriodFilter() {
-    const sel = document.getElementById('mov-period');
-    const current = sel.value;
-    const months = [...new Set(movimientos.map(m => {
+  function updatePeriodPills(acct) {
+    const arr = acct === 1 ? movimientos : movimientos2;
+    const sel = acct === 1 ? selectedPeriods1 : selectedPeriods2;
+    const el  = document.getElementById(`mov-pills-${acct}`);
+    if (!el) return;
+    const months = [...new Set(arr.map(m => {
       const [d, mo, y] = m.fecha.split('/');
       return `${y}-${mo}`;
     }))].sort().reverse();
-    sel.innerHTML = '<option value="">Todos los periodos</option>';
-    months.forEach(m => {
-      const [y, mo] = m.split('-');
-      const label = new Date(+y, +mo-1, 1).toLocaleDateString('es-ES', { month:'long', year:'numeric' });
-      sel.innerHTML += `<option value="${m}" ${m === current ? 'selected' : ''}>${label}</option>`;
+    const todosActive = sel.size === 0;
+    let html = `<span class="mov-pill ${todosActive ? 'active' : ''}" onclick="clearPeriods(${acct})">Todos</span>`;
+    months.forEach(p => {
+      const [y, mo] = p.split('-');
+      const label = new Date(+y, +mo-1, 1).toLocaleDateString('es-ES', { month:'short', year:'2-digit' });
+      const active = sel.has(p);
+      html += `<span class="mov-pill ${active ? 'active' : ''}" onclick="togglePeriod(${acct},'${p}')">${label}</span>`;
     });
+    el.innerHTML = html;
+  }
+
+  function togglePeriod(acct, period) {
+    const sel = acct === 1 ? selectedPeriods1 : selectedPeriods2;
+    if (sel.has(period)) sel.delete(period);
+    else sel.add(period);
+    updatePeriodPills(acct);
+    renderMovimientos();
+  }
+
+  function clearPeriods(acct) {
+    if (acct === 1) selectedPeriods1.clear();
+    else selectedPeriods2.clear();
+    updatePeriodPills(acct);
+    renderMovimientos();
   }
 
   function toggleMovGroup(key) {
@@ -991,16 +1052,17 @@
     renderMovimientos();
   }
 
-  function updateMovTag(idx, newTag, newCat) {
-    movimientos[idx].tag = newTag;
-    movimientos[idx].cat = newCat;
+  function updateMovTag(idx, newTag, newCat, acct = 1) {
+    const arr = acct === 1 ? movimientos : movimientos2;
+    arr[idx].tag = newTag;
+    arr[idx].cat = newCat;
     renderMovimientos();
   }
 
   function renderMovimientos() {
     const container = document.getElementById('mov-container');
     const kpiEl     = document.getElementById('mov-kpi');
-    if (!movimientos.length) {
+    if (!movimientos.length && !movimientos2.length) {
       container.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-muted);font-size:13px;grid-column:1/-1">
         Importa un CSV de tu banco para ver los movimientos
       </div>`;
@@ -1008,27 +1070,33 @@
       return;
     }
 
-    const period = document.getElementById('mov-period').value;
-    const [filterY, filterM] = period ? period.split('-') : [null, null];
+    // Filtrar cada cuenta por sus meses seleccionados
+    function filterArr(arr, sel) {
+      if (!sel.size) return arr;
+      return arr.filter(m => {
+        const [d, mo, y] = m.fecha.split('/');
+        const period = `${y}-${mo}`;
+        if (m.amortizar) return [...sel].some(p => p.startsWith(y + '-'));
+        return sel.has(period);
+      });
+    }
 
-    // Calcular importe efectivo teniendo en cuenta amortización anual
+    const filtered1 = filterArr(movimientos,  selectedPeriods1);
+    const filtered2 = filterArr(movimientos2, selectedPeriods2);
+    const filtered  = [...filtered1, ...filtered2];
+
+    // años activos en filtros para amortización
+    const activeYears = new Set([
+      ...([...selectedPeriods1].map(p => p.split('-')[0])),
+      ...([...selectedPeriods2].map(p => p.split('-')[0])),
+    ]);
+
     function importeEfectivo(m) {
       if (!m.amortizar) return m.importe;
       const [d, mo, y] = m.fecha.split('/');
-      if (filterY && filterY !== y) return 0;
+      if (activeYears.size && !activeYears.has(y)) return 0;
       return m.importe / 12;
     }
-
-    const filtered = period
-      ? movimientos.filter(m => {
-          if (m.amortizar) {
-            const [d, mo, y] = m.fecha.split('/');
-            return filterY === y; // mostrar en todos los meses del año
-          }
-          const [d, mo, y] = m.fecha.split('/');
-          return `${y}-${mo}` === period;
-        })
-      : movimientos;
 
     // Totales KPI
     const totI = filtered.filter(m => m.cat === 'ingresos').reduce((s,m) => s + importeEfectivo(m), 0);
@@ -1038,12 +1106,17 @@
       <span><span>Gastos</span> <strong class="txt-neg">${fmt(totG)}</strong></span>
       <span><span>Balance</span> <strong class="${totI-totG>=0?'txt-pos':'txt-neg'}">${fmt(totI-totG)}</strong></span>`;
 
-    // Agrupar por cat+tag
+    // Agrupar por cat+tag, guardando acct y origIdx
     const groups = {};
-    filtered.forEach(m => {
+    filtered1.forEach(m => {
       const key = m.cat + '|' + m.tag;
       if (!groups[key]) groups[key] = { cat: m.cat, tag: m.tag, items: [] };
-      groups[key].items.push({ ...m, origIdx: movimientos.indexOf(m) });
+      groups[key].items.push({ ...m, acct: 1, origIdx: movimientos.indexOf(m) });
+    });
+    filtered2.forEach(m => {
+      const key = m.cat + '|' + m.tag;
+      if (!groups[key]) groups[key] = { cat: m.cat, tag: m.tag, items: [] };
+      groups[key].items.push({ ...m, acct: 2, origIdx: movimientos2.indexOf(m) });
     });
 
     const allTags = {
@@ -1063,13 +1136,9 @@
 
       let html = '<div class="card" style="overflow:hidden">';
       const colLabel = cats.includes('ingresos') ? 'INGRESOS' : 'GASTOS';
-      const colColor = cats.includes('ingresos') ? 'var(--pos)' : 'var(--neg)';
       const colTotal = colGroups.reduce((s,g) =>
         s + g.items.reduce((gs,m) => gs + (cats.includes('ingresos') ? importeEfectivo(m) : Math.abs(importeEfectivo(m))), 0), 0);
-      html += `<div class="card-header">
-        <h2>${colLabel}</h2>
-        <span class="tot-val">${fmt(colTotal)}</span>
-      </div>`;
+      html += `<div class="card-header"><h2>${colLabel}</h2><span class="tot-val">${fmt(colTotal)}</span></div>`;
 
       colGroups.forEach(g => {
         const gKey = g.cat + '|' + g.tag;
@@ -1082,7 +1151,7 @@
         html += `<div class="group-title-row" style="cursor:pointer" onclick="toggleMovGroup('${gKey}')">
           <span class="group-toggle ${!isExpanded ? 'collapsed' : ''}">▼</span>
           <span style="flex:1;font-size:11px;font-weight:700;color:var(--text)">${g.tag}</span>
-          <span style="font-size:10px;color:var(--text-muted);margin-right:8px" onclick="toggleMovSort('${gKey}',event)" title="Ordenar">${sortLabel}</span>
+          <span style="font-size:10px;color:var(--text-muted);margin-right:8px" onclick="toggleMovSort('${gKey}',event)">${sortLabel}</span>
           <span class="group-sum ${colorCls}">${fmt(Math.abs(gTotal))}</span>
         </div>`;
 
@@ -1093,11 +1162,14 @@
 
           items.forEach(m => {
             const oi = m.origIdx;
+            const ac = m.acct;
+            const editKey = `${ac}-${oi}`;
             const catOpts = ['ingresos','gastos','interno'].map(c =>
               `<optgroup label="${c}">${(allTags[c]||[]).map(t =>
                 `<option value="${c}|${t}" ${m.cat===c && m.tag===t ? 'selected':''}>${t}</option>`
               ).join('')}</optgroup>`).join('');
             const rowCls = m.cat === 'interno' ? 'mov-interno' : '';
+            const acctBadge = movimientos2.length ? `<span style="font-size:9px;color:var(--text-muted);margin-left:2px">[C${ac}]</span>` : '';
             const amortLabel = (() => {
               if (!m.amortizar) return '';
               const [d, mo, y] = m.fecha.split('/');
@@ -1105,35 +1177,31 @@
               return ` <span style="font-size:10px;color:#0369a1">(Amortizado ${mes.charAt(0).toUpperCase()+mes.slice(1)})</span>`;
             })();
             const impEf = importeEfectivo(m);
-            const isEditing = movEditando === oi;
+            const isEditing = movEditando === editKey;
+            const arr = ac === 1 ? 'movimientos' : 'movimientos2';
 
             if (isEditing) {
               const descEsc = (m.desc || '').replace(/"/g,'&quot;');
               html += `<div class="mov-row ${rowCls}" style="flex-wrap:wrap;gap:4px">
                 <span class="mov-fecha">${m.fecha.slice(0,5)}</span>
                 <input class="mov-desc-input" value="${descEsc}"
-                  onchange="movimientos[${oi}].desc=this.value"
+                  onchange="${arr}[${oi}].desc=this.value"
                   onblur="movEditando=null;renderMovimientos()"
                   onkeydown="if(event.key==='Enter'){movEditando=null;renderMovimientos()}"
-                  id="mov-edit-${oi}">
-                <select class="mov-tag-sel" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${oi},t,c)})(this)">
-                  ${catOpts}
-                </select>
+                  id="mov-edit-${editKey}">
+                <select class="mov-tag-sel" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${oi},t,c,${ac})})(this)">${catOpts}</select>
                 <span class="mov-importe ${impEf>=0?'txt-pos':'txt-neg'}">${fmt(impEf)}</span>
               </div>
               <div class="mov-edit-panel">
-                <input type="checkbox" class="mov-amort-check" id="amort-${oi}"
-                  ${m.amortizar?'checked':''}
-                  onmousedown="event.preventDefault();movimientos[${oi}].amortizar=!movimientos[${oi}].amortizar;renderMovimientos()">
-                <label class="mov-amort-label" for="amort-${oi}">Amortizar en el año (÷12 meses)</label>
+                <input type="checkbox" class="mov-amort-check" id="amort-${editKey}" ${m.amortizar?'checked':''}
+                  onmousedown="event.preventDefault();${arr}[${oi}].amortizar=!${arr}[${oi}].amortizar;renderMovimientos()">
+                <label class="mov-amort-label" for="amort-${editKey}">Amortizar en el año (÷12 meses)</label>
               </div>`;
             } else {
               html += `<div class="mov-row ${rowCls}">
                 <span class="mov-fecha">${m.fecha.slice(0,5)}</span>
-                <span class="mov-desc" style="cursor:text" onclick="movEditando=${oi};renderMovimientos()" title="Click para editar">${m.desc}${amortLabel}</span>
-                <select class="mov-tag-sel" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${oi},t,c)})(this)">
-                  ${catOpts}
-                </select>
+                <span class="mov-desc" style="cursor:text" onclick="movEditando='${editKey}';renderMovimientos()">${m.desc}${acctBadge}${amortLabel}</span>
+                <select class="mov-tag-sel" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${oi},t,c,${ac})})(this)">${catOpts}</select>
                 <span class="mov-importe ${impEf>=0?'txt-pos':'txt-neg'}">${fmt(impEf)}</span>
               </div>`;
             }
@@ -1150,7 +1218,6 @@
 
     container.innerHTML = buildColumn(['ingresos','interno']) + buildColumn(['gastos']);
 
-    // Focus en input si estamos editando
     if (movEditando !== null) {
       const inp = document.getElementById(`mov-edit-${movEditando}`);
       if (inp) { inp.focus(); inp.select(); }
