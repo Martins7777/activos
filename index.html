@@ -624,6 +624,7 @@
   let expandedMovGroups = {}; // Estado expandido de grupos en Movimientos
   let sortMovGroups = {};     // Orden de cada grupo: 'fecha'|'asc'|'desc'
   let movEditando = null;     // origIdx del movimiento en edición
+  let movEditandoFecha = false; // true si se hizo click en la fecha
 
   const tagsByCategory = {
     ingresos: ['Trabajo', 'Renta', 'Variable', 'Otros'],
@@ -1204,27 +1205,31 @@
 
             if (isEditing) {
               const descEsc = (m.desc || '').replace(/"/g,'&quot;');
-              html += `<div class="mov-row ${rowCls}" style="flex-wrap:wrap;gap:4px">
+              const blurClose = `(function(e){if(!e.relatedTarget||!e.relatedTarget.closest('[data-ek="${editKey}"]')){movEditando=null;renderMovimientos()}})(event)`;
+              html += `<div class="mov-row ${rowCls}" style="flex-wrap:wrap;gap:4px" data-ek="${editKey}">
                 <input class="mov-fecha-input" value="${m.fecha}"
-                  onchange="${arr}[${oi}].fecha=this.value;updatePeriodPills();renderMovimientos()"
+                  data-ek="${editKey}"
+                  onchange="${arr}[${oi}].fecha=this.value;updatePeriodPills()"
+                  onblur="${blurClose}"
                   onkeydown="if(event.key==='Enter')document.getElementById('mov-edit-${editKey}').focus()"
                   placeholder="dd/mm/aaaa">
                 <input class="mov-desc-input" value="${descEsc}"
+                  data-ek="${editKey}"
                   onchange="${arr}[${oi}].desc=this.value"
-                  onblur="movEditando=null;renderMovimientos()"
+                  onblur="${blurClose}"
                   onkeydown="if(event.key==='Enter'){movEditando=null;renderMovimientos()}"
                   id="mov-edit-${editKey}">
-                <select class="mov-tag-sel" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${oi},t,c,${ac})})(this)">${catOpts}</select>
+                <select class="mov-tag-sel" data-ek="${editKey}" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${oi},t,c,${ac})})(this)">${catOpts}</select>
                 <span class="mov-importe ${impEf>=0?'txt-pos':'txt-neg'}">${fmt(impEf)}</span>
               </div>
-              <div class="mov-edit-panel">
+              <div class="mov-edit-panel" data-ek="${editKey}">
                 <input type="checkbox" class="mov-amort-check" id="amort-${editKey}" ${m.amortizar?'checked':''}
                   onmousedown="event.preventDefault();${arr}[${oi}].amortizar=!${arr}[${oi}].amortizar;renderMovimientos()">
                 <label class="mov-amort-label" for="amort-${editKey}">Amortizar en el año (÷12 meses)</label>
               </div>`;
             } else {
               html += `<div class="mov-row ${rowCls}">
-                <span class="mov-fecha" onclick="movEditando='${editKey}';renderMovimientos()" title="Click para editar">${m.fecha.slice(0,5)}</span>
+                <span class="mov-fecha" onclick="movEditando='${editKey}';movEditandoFecha=true;renderMovimientos()" title="Click para editar">${m.fecha.slice(0,5)}</span>
                 <span class="mov-desc" style="cursor:text" onclick="movEditando='${editKey}';renderMovimientos()">${m.desc}${acctBadge}${amortLabel}</span>
                 <select class="mov-tag-sel" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${oi},t,c,${ac})})(this)">${catOpts}</select>
                 <span class="mov-importe ${impEf>=0?'txt-pos':'txt-neg'}">${fmt(impEf)}</span>
@@ -1246,6 +1251,9 @@
     if (movEditando !== null) {
       const inp = document.getElementById(`mov-edit-${movEditando}`);
       if (inp) { inp.focus(); inp.select(); }
+      // Si se hizo click en fecha, focus en fecha
+      const fechaInp = document.querySelector(`[data-ek="${movEditando}"].mov-fecha-input`);
+      if (fechaInp && movEditandoFecha) { fechaInp.focus(); fechaInp.select(); movEditandoFecha = false; }
     }
   }
 
