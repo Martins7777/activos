@@ -534,6 +534,7 @@
   let state = { ingresos: [], gastos: [], activos: [], pasivos: [] };
   let expandedGroups = {}; // Guardar estado expandido por grupo: "cat-gIdx" => true/false
   let expandedMovGroups = {}; // Estado expandido de grupos en Movimientos
+  let sortMovGroups = {};     // Orden de cada grupo: 'fecha'|'asc'|'desc'
 
   const tagsByCategory = {
     ingresos: ['Trabajo', 'Renta', 'Variable', 'Otros'],
@@ -954,6 +955,13 @@
     renderMovimientos();
   }
 
+  function toggleMovSort(key, e) {
+    e.stopPropagation();
+    const cur = sortMovGroups[key] || 'fecha';
+    sortMovGroups[key] = cur === 'fecha' ? 'desc' : cur === 'desc' ? 'asc' : 'fecha';
+    renderMovimientos();
+  }
+
   function updateMovTag(idx, newTag, newCat) {
     movimientos[idx].tag = newTag;
     movimientos[idx].cat = newCat;
@@ -1009,18 +1017,26 @@
     sorted.forEach(g => {
       const gKey = g.cat + '|' + g.tag;
       const isExpanded = expandedMovGroups[gKey] !== false;
+      const sortMode = sortMovGroups[gKey] || 'fecha';
       const gTotal = g.items.reduce((s,m) => s + m.importe, 0);
       const colorCls = g.cat === 'ingresos' ? 'txt-pos' : g.cat === 'gastos' ? 'txt-neg' : '';
+      const sortLabel = sortMode === 'fecha' ? '↕ importe' : sortMode === 'desc' ? '↓ mayor' : '↑ menor';
       html += `<div class="mov-group-header" style="cursor:pointer" onclick="toggleMovGroup('${gKey}')">
         <span style="display:flex;align-items:center;gap:6px">
           <span style="font-size:10px;color:var(--text-muted);transition:transform 0.2s;display:inline-block;transform:${isExpanded?'':'rotate(-90deg)'}">▼</span>
           ${g.cat === 'interno' ? 'INTERNO' : g.cat.toUpperCase()} · ${g.tag}
         </span>
-        <span class="mov-group-total ${colorCls}">${fmt(gTotal)}</span>
+        <span style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:10px;color:var(--text-muted);font-weight:500;text-transform:none;letter-spacing:0" onclick="toggleMovSort('${gKey}',event)">${sortLabel}</span>
+          <span class="mov-group-total ${colorCls}">${fmt(gTotal)}</span>
+        </span>
       </div>`;
 
       if (isExpanded) {
-        g.items.forEach(m => {
+        let items = [...g.items];
+        if (sortMode === 'desc') items.sort((a,b) => Math.abs(b.importe) - Math.abs(a.importe));
+        else if (sortMode === 'asc') items.sort((a,b) => Math.abs(a.importe) - Math.abs(b.importe));
+        items.forEach(m => {
           const catOpts = ['ingresos','gastos','interno'].map(c =>
             `<optgroup label="${c}">${(allTags[c]||[]).map(t =>
               `<option value="${c}|${t}" ${m.cat===c && m.tag===t ? 'selected':''}>${t}</option>`
