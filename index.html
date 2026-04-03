@@ -533,6 +533,7 @@
 <script>
   let state = { ingresos: [], gastos: [], activos: [], pasivos: [] };
   let expandedGroups = {}; // Guardar estado expandido por grupo: "cat-gIdx" => true/false
+  let expandedMovGroups = {}; // Estado expandido de grupos en Movimientos
 
   const tagsByCategory = {
     ingresos: ['Trabajo', 'Renta', 'Variable', 'Otros'],
@@ -948,6 +949,11 @@
     });
   }
 
+  function toggleMovGroup(key) {
+    expandedMovGroups[key] = !expandedMovGroups[key];
+    renderMovimientos();
+  }
+
   function updateMovTag(idx, newTag, newCat) {
     movimientos[idx].tag = newTag;
     movimientos[idx].cat = newCat;
@@ -1001,28 +1007,35 @@
 
     let html = '<div class="card" style="overflow:hidden">';
     sorted.forEach(g => {
+      const gKey = g.cat + '|' + g.tag;
+      const isExpanded = expandedMovGroups[gKey] !== false;
       const gTotal = g.items.reduce((s,m) => s + m.importe, 0);
       const colorCls = g.cat === 'ingresos' ? 'txt-pos' : g.cat === 'gastos' ? 'txt-neg' : '';
-      html += `<div class="mov-group-header">
-        <span>${g.cat === 'interno' ? 'INTERNO' : g.cat.toUpperCase()} · ${g.tag}</span>
+      html += `<div class="mov-group-header" style="cursor:pointer" onclick="toggleMovGroup('${gKey}')">
+        <span style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:10px;color:var(--text-muted);transition:transform 0.2s;display:inline-block;transform:${isExpanded?'':'rotate(-90deg)'}">▼</span>
+          ${g.cat === 'interno' ? 'INTERNO' : g.cat.toUpperCase()} · ${g.tag}
+        </span>
         <span class="mov-group-total ${colorCls}">${fmt(gTotal)}</span>
       </div>`;
 
-      g.items.forEach(m => {
-        const catOpts = ['ingresos','gastos','interno'].map(c =>
-          `<optgroup label="${c}">${(allTags[c]||[]).map(t =>
-            `<option value="${c}|${t}" ${m.cat===c && m.tag===t ? 'selected':''}>${t}</option>`
-          ).join('')}</optgroup>`).join('');
-        const rowCls = m.cat === 'interno' ? 'mov-interno' : '';
-        html += `<div class="mov-row ${rowCls}">
-          <span class="mov-fecha">${m.fecha.slice(0,5)}</span>
-          <span class="mov-desc" title="${m.desc}${m.detalle ? ' · '+m.detalle : ''}">${m.desc}${m.detalle ? ' <span style="color:var(--text-muted);font-size:10px">· '+m.detalle+'</span>' : ''}</span>
-          <select class="mov-tag-sel" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${m.origIdx},t,c)})(this)">
-            ${catOpts}
-          </select>
-          <span class="mov-importe ${m.importe>=0?'txt-pos':'txt-neg'}">${fmt(m.importe)}</span>
-        </div>`;
-      });
+      if (isExpanded) {
+        g.items.forEach(m => {
+          const catOpts = ['ingresos','gastos','interno'].map(c =>
+            `<optgroup label="${c}">${(allTags[c]||[]).map(t =>
+              `<option value="${c}|${t}" ${m.cat===c && m.tag===t ? 'selected':''}>${t}</option>`
+            ).join('')}</optgroup>`).join('');
+          const rowCls = m.cat === 'interno' ? 'mov-interno' : '';
+          html += `<div class="mov-row ${rowCls}">
+            <span class="mov-fecha">${m.fecha.slice(0,5)}</span>
+            <span class="mov-desc" title="${m.desc}${m.detalle ? ' · '+m.detalle : ''}">${m.desc}${m.detalle ? ' <span style="color:var(--text-muted);font-size:10px">· '+m.detalle+'</span>' : ''}</span>
+            <select class="mov-tag-sel" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${m.origIdx},t,c)})(this)">
+              ${catOpts}
+            </select>
+            <span class="mov-importe ${m.importe>=0?'txt-pos':'txt-neg'}">${fmt(m.importe)}</span>
+          </div>`;
+        });
+      }
     });
     html += '</div>';
     container.innerHTML = html;
