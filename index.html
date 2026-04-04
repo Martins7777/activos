@@ -961,6 +961,18 @@
         if (Array.isArray(mov2)) { movimientos2 = mov2; }
         if (Array.isArray(mov3)) { movimientos3 = mov3; }
         if (Array.isArray(umr))  { userMovRules = umr; }
+        // Asignar group automáticamente a entradas que lo tengan vacío o inválido
+        const validGroups = ['Ingreso personal','Ingreso activos','Gasto vida','Gasto activos','Gasto personal','Gasto inversión','Interno'];
+        [movimientos, movimientos2, movimientos3].forEach(arr => {
+          arr.forEach(m => {
+            if (m.manualTag) return;
+            if (!m.group || !validGroups.includes(m.group)) {
+              const r = autoCateg(m.desc, m.detalle || '', m.importe);
+              m.cat   = r.cat;
+              m.group = r.group;
+            }
+          });
+        });
         updatePeriodPills(1);
         render();
         setStatus('✓ Cargado', 'ok');
