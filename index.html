@@ -684,7 +684,6 @@
       <select id="rule-cat" class="rules-select" onchange="updateRuleTagOpts()">
         <option value="gastos">Gastos</option>
         <option value="ingresos">Ingresos</option>
-        <option value="interno">Interno</option>
       </select>
       <select id="rule-tag" class="rules-select"></select>
       <button class="btn-io btn-light" onclick="addUserRule()">Añadir</button>
@@ -705,6 +704,12 @@
     gastos:   ['Hipoteca', 'Préstamo', 'Mantenimiento propiedades', 'Personal', 'Inversión', 'Inversión propiedades', 'Microgasto'],
     activos:  ['Inmobiliario', 'Financiero', 'Liquidez', 'Pensión'],
     pasivos:  ['Hipoteca', 'Préstamo', 'Tarjeta']
+  };
+
+  // Tags exclusivos de Movimientos (independientes del balance de Posición)
+  const movTagsByCategory = {
+    ingresos: ['Nómina', 'Rentas', 'Interno'],
+    gastos:   ['Vivienda Hipoteca y préstamos', 'Supermercado', 'Mant. propiedades', 'Transporte', 'Ocio', 'Suscripciones'],
   };
 
   function fmt(v) {
@@ -1015,54 +1020,53 @@
          'ajuste devolucion','palacio nov25','recibos varios','compra con tarjeta',
          'devolucion compra','spending tabaiba','cond.cuota tarjeta','cuota t. debit',
          'traspaso propio;caix'], cat:'interno', tag:'Transferencia' },
-    // Ingresos - Trabajo (transferencias nómina propias: 00491770-MARTIN SIMON ALDO)
-    { k:['00491770-martin simon aldo','martin simon aldo'], cat:'ingresos', tag:'Trabajo' },
-    // Ingresos - Renta (alquileres, ingresos fijos de terceros)
-    { k:['00750167-dominguez riesco'], cat:'ingresos', tag:'Renta' },
-    // Ingresos - Variable (bizum, transferencias de otros)
-    { k:['bizum recibido'], cat:'ingresos', tag:'Variable' },
+    // Ingresos - Nómina
+    { k:['00491770-martin simon aldo','martin simon aldo'], cat:'ingresos', tag:'Nómina' },
+    // Ingresos - Rentas (alquileres, ingresos fijos de terceros)
+    { k:['00750167-dominguez riesco'], cat:'ingresos', tag:'Rentas' },
+    // Ingresos - Nómina (bizum recibido, transferencias de terceros)
+    { k:['bizum recibido'], cat:'ingresos', tag:'Nómina' },
     { k:['21033240-ruben diaz','14650100-miguel angel hernando','21033025-alba sanchez',
          '20858068-moreno cerezo','00495189-cortes serrano','01825322-aldo martin simon',
-         '00730100-vasquez abella'], cat:'ingresos', tag:'Variable' },
-    // Ingresos - Otros (devoluciones, reembolsos)
-    { k:['alberto martin ge','2.plazo irpf'], cat:'ingresos', tag:'Otros' },
-    // Gastos - Préstamo
-    { k:['sequra'], cat:'gastos', tag:'Préstamo' },
-    { k:['pago transferencias 2650-56-0002713'], cat:'gastos', tag:'Préstamo' },
-    { k:['pago transferencias 2650-56-0006112'], cat:'gastos', tag:'Préstamo' },
-    // Gastos - Inversión
-    { k:['pago traspasos 2650-56-0005099'], cat:'gastos', tag:'Inversión' },
-    // Gastos - Mantenimiento propiedades
+         '00730100-vasquez abella'], cat:'ingresos', tag:'Nómina' },
+    // Ingresos - Rentas (devoluciones, reembolsos)
+    { k:['alberto martin ge','2.plazo irpf'], cat:'ingresos', tag:'Rentas' },
+    // Gastos - Vivienda Hipoteca y préstamos
+    { k:['sequra'], cat:'gastos', tag:'Vivienda Hipoteca y préstamos' },
+    { k:['pago transferencias 2650-56-0002713'], cat:'gastos', tag:'Vivienda Hipoteca y préstamos' },
+    { k:['pago transferencias 2650-56-0006112'], cat:'gastos', tag:'Vivienda Hipoteca y préstamos' },
+    // Gastos - Mant. propiedades
+    { k:['pago traspasos 2650-56-0005099'], cat:'gastos', tag:'Mant. propiedades' },
     { k:['mutua madrile','itv guimar','taller davila','serv.const.fianza',
-         'colegio de regist','ayto.de madrid','ajunt.de'], cat:'gastos', tag:'Mantenimiento propiedades' },
-    // Gastos - Personal (supermercados)
+         'colegio de regist','ayto.de madrid','ajunt.de'], cat:'gastos', tag:'Mant. propiedades' },
+    // Gastos - Supermercado
     { k:['lidl','mercadona','carrefour','aldi ','spar ','supercor','alcampo','maskom',
-         'supermercados','minimarket'], cat:'gastos', tag:'Personal' },
-    // Gastos - Personal (suscripciones)
+         'supermercados','minimarket'], cat:'gastos', tag:'Supermercado' },
+    // Gastos - Suscripciones
     { k:['spotify','google one','openai','chatgpt','claude.ai','wellhub','kraftwerk',
-         'amazon prime','sny box','snny crossfit'], cat:'gastos', tag:'Personal' },
-    // Gastos - Personal (deporte)
-    { k:['crossfit','hybrid day','decathlon','multitienda olymp'], cat:'gastos', tag:'Personal' },
-    // Gastos - Personal (viajes/transporte)
+         'amazon prime','sny box','snny crossfit'], cat:'gastos', tag:'Suscripciones' },
+    // Gastos - Ocio (deporte)
+    { k:['crossfit','hybrid day','decathlon','multitienda olymp'], cat:'gastos', tag:'Ocio' },
+    // Gastos - Transporte (viajes)
     { k:['vueling','iberia','ryanair','ouigo','renfe','naviera armas','fred.olsen',
-         'bolt.eu','easypark','nyx*airserv','cronos renfe','empresa municipal','sagulpa'], cat:'gastos', tag:'Personal' },
-    // Gastos - Personal (gasolina)
+         'bolt.eu','easypark','nyx*airserv','cronos renfe','empresa municipal','sagulpa'], cat:'gastos', tag:'Transporte' },
+    // Gastos - Transporte (gasolina)
     { k:['plenergy','cedipsa','cepsa ','estacion serv','e.s. las','e.s. shell',
-         'h2exagon','us016b','us016ca','us246ca','us16b'], cat:'gastos', tag:'Personal' },
-    // Gastos - Personal (restaurantes/bares)
+         'h2exagon','us016b','us016ca','us246ca','us16b'], cat:'gastos', tag:'Transporte' },
+    // Gastos - Ocio (restaurantes/bares)
     { k:['bar ','cafe ','cafeteria','restaurante','pingoneo','standard coffee',
          'nordis coffee','nescafe','marisma planta','table n ','faborit','komilona',
          'mostazza','factory gelat','kuups','jardin del mar','cerveceria','skinazo',
          'productores de so','tabaiba plaza','granier','922 food','sol ','pub ',
          'bar la','bar el','bar caf','bar ranea','bar soles','bar exlor',
-         'cafeteria brillan','cafeteria la ria','cafeteria mi bar'], cat:'gastos', tag:'Personal' },
-    // Gastos - Personal (otros)
-    { k:['bizum enviado'], cat:'gastos', tag:'Personal' },
+         'cafeteria brillan','cafeteria la ria','cafeteria mi bar'], cat:'gastos', tag:'Ocio' },
+    // Gastos - Ocio (otros)
+    { k:['bizum enviado'], cat:'gastos', tag:'Ocio' },
     { k:['amazon','temu','paypal','mediamarkt','media markt','agapea','chinatown',
          'sols cabell','bazar','fcia.','farmacia','tickety','vip district','ibex dual',
          'hd caletillas','hdx playa','ab servicios','islenio','yassine','flippers',
          'allday oasis','talaso','distribuciones ta','naviera','fred.','hsn store',
-         'pkiflyers','mostazza'], cat:'gastos', tag:'Personal' },
+         'pkiflyers','mostazza'], cat:'gastos', tag:'Ocio' },
   ];
 
   function autoCateg(desc, detalle, importe) {
@@ -1073,7 +1077,7 @@
     for (const r of movRules) {
       if (r.k.some(k => text.includes(k))) return { cat: r.cat, tag: r.tag };
     }
-    return importe > 0 ? { cat:'ingresos', tag:'Variable' } : { cat:'gastos', tag:'Personal' };
+    return importe > 0 ? { cat:'ingresos', tag:'Nómina' } : { cat:'gastos', tag:'Ocio' };
   }
 
   // ── Modal de reglas de categorización ────────────────────────
@@ -1087,7 +1091,7 @@
   }
   function updateRuleTagOpts() {
     const cat = document.getElementById('rule-cat')?.value || 'gastos';
-    const tags = cat === 'interno' ? ['Transferencia', 'Fianza'] : (tagsByCategory[cat] || []);
+    const tags = movTagsByCategory[cat] || [];
     document.getElementById('rule-tag').innerHTML = tags.map(t => `<option value="${t}">${t}</option>`).join('');
   }
   function renderRulesModal() {
@@ -1287,8 +1291,8 @@
       <span><span>Balance</span> <strong class="${totI-totG>=0?'txt-pos':'txt-neg'}">${fmt(totI-totG)}</strong></span>`;
 
     const allTags = {
-      ingresos: tagsByCategory.ingresos,
-      gastos:   tagsByCategory.gastos,
+      ingresos: movTagsByCategory.ingresos,
+      gastos:   movTagsByCategory.gastos,
       interno:  ['Transferencia', 'Fianza'],
     };
 
