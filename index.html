@@ -1433,9 +1433,10 @@
                 <label class="mov-amort-label" for="amort-${editKey}">Amortizar en el año (÷12 meses)</label>
               </div>`;
             } else {
+              const tagBadge = m.tag ? `<span style="font-size:9px;color:var(--text-muted);margin-left:4px;opacity:0.7">${m.tag}</span>` : '';
               html += `<div class="mov-row ${rowCls}">
                 <span class="mov-fecha" onclick="movEditando='${editKey}';movEditandoFecha=true;renderMovimientos()" title="Click para editar">${m.fecha.slice(0,5)}</span>
-                <span class="mov-desc" style="cursor:text" onclick="movEditando='${editKey}';renderMovimientos()">${m.desc}${acctBadge}${amortLabel}</span>
+                <span class="mov-desc" style="cursor:text" onclick="movEditando='${editKey}';renderMovimientos()">${m.desc}${acctBadge}${tagBadge}${amortLabel}</span>
                 <select class="mov-tag-sel" onchange="(function(s){const[c,g,t]=s.value.split('|');updateMovTag(${oi},g,t,c,${ac})})(this)">${catOpts}</select>
                 <span class="mov-importe ${impEf>=0?'txt-pos':'txt-neg'}">${fmt(impEf)}</span>
               </div>`;
