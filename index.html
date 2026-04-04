@@ -1178,12 +1178,11 @@
   const validGroups = ['Ingreso personal','Ingreso activos','Gasto vida','Gasto activos','Gasto personal','Gasto inversión','Interno'];
   function ensureGroups(arr) {
     arr.forEach(m => {
-      if (m.manualTag) return;
-      if (!m.group || !validGroups.includes(m.group)) {
-        const r = autoCateg(m.desc, m.detalle || '', m.importe);
-        m.cat   = r.cat;
-        m.group = r.group;
-      }
+      if (m.manualTag) return; // nunca tocar los marcados manualmente
+      // Siempre reaplicar autoCateg — garantiza grupo válido aunque el dato venga de Cloudflare con formato antiguo
+      const r = autoCateg(m.desc, m.detalle || '', m.importe);
+      m.cat   = r.cat;
+      m.group = r.group;
     });
     return arr;
   }
