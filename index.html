@@ -681,6 +681,7 @@
     <div class="rules-add">
       <div style="width:100%;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">Nueva regla</div>
       <input id="rule-keyword" class="rules-input" type="text" placeholder="Palabra clave (ej: SEQURA)" onkeydown="if(event.key==='Enter')addUserRule()">
+      <input id="rule-valor" class="rules-input" type="number" placeholder="Valor exacto (opcional)" style="max-width:130px">
       <select id="rule-cat" class="rules-select" onchange="updateRuleTagOpts()">
         <option value="gastos">Gastos</option>
         <option value="ingresos">Ingresos</option>
@@ -1072,7 +1073,9 @@
   function autoCateg(desc, detalle, importe) {
     const text = ((desc || '') + ' ' + (detalle || '')).toLowerCase();
     for (const r of userMovRules) {
-      if (text.includes(r.k.toLowerCase())) return { cat: r.cat, tag: r.tag };
+      if (!text.includes(r.k.toLowerCase())) continue;
+      if (r.valor != null && Math.abs(Math.abs(importe) - Math.abs(r.valor)) > 0.01) continue;
+      return { cat: r.cat, tag: r.tag };
     }
     for (const r of movRules) {
       if (r.k.some(k => text.includes(k))) return { cat: r.cat, tag: r.tag };
@@ -1100,11 +1103,13 @@
       list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px 0">No hay reglas personalizadas</div>';
       return;
     }
-    list.innerHTML = userMovRules.map((r, i) => `
-      <div class="rules-row">
-        <span style="flex:1"><strong>${r.k}</strong> <span style="color:var(--text-muted)">→ ${r.cat} / ${r.tag}</span></span>
+    list.innerHTML = userMovRules.map((r, i) => {
+      const valorLabel = r.valor != null ? ` · ${r.valor} €` : ' · todos los importes';
+      return `<div class="rules-row">
+        <span style="flex:1"><strong>${r.k}</strong><span style="color:var(--text-muted)">${valorLabel} → ${r.cat} / ${r.tag}</span></span>
         <button onclick="deleteUserRule(${i})" style="background:none;border:none;cursor:pointer;color:var(--neg);font-size:14px;padding:0 4px" title="Eliminar">✕</button>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
   function reapplyUserRules() {
     [movimientos, movimientos2, movimientos3].forEach(arr => {
@@ -1122,8 +1127,11 @@
     const cat = document.getElementById('rule-cat').value;
     const tag = document.getElementById('rule-tag').value;
     if (!k || !cat || !tag) return;
-    userMovRules.push({ k, cat, tag });
+    const valorRaw = document.getElementById('rule-valor').value.trim();
+    const valor = valorRaw !== '' ? parseFloat(valorRaw) : null;
+    userMovRules.push({ k, cat, tag, ...(valor != null ? { valor } : {}) });
     document.getElementById('rule-keyword').value = '';
+    document.getElementById('rule-valor').value = '';
     renderRulesModal();
     reapplyUserRules();
   }
