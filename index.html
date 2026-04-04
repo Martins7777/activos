@@ -962,17 +962,7 @@
         if (Array.isArray(mov3)) { movimientos3 = mov3; }
         if (Array.isArray(umr))  { userMovRules = umr; }
         // Asignar group automáticamente a entradas que lo tengan vacío o inválido
-        const validGroups = ['Ingreso personal','Ingreso activos','Gasto vida','Gasto activos','Gasto personal','Gasto inversión','Interno'];
-        [movimientos, movimientos2, movimientos3].forEach(arr => {
-          arr.forEach(m => {
-            if (m.manualTag) return;
-            if (!m.group || !validGroups.includes(m.group)) {
-              const r = autoCateg(m.desc, m.detalle || '', m.importe);
-              m.cat   = r.cat;
-              m.group = r.group;
-            }
-          });
-        });
+        [movimientos, movimientos2, movimientos3].forEach(arr => ensureGroups(arr));
         updatePeriodPills(1);
         render();
         setStatus('✓ Cargado', 'ok');
@@ -1185,16 +1175,28 @@
     renderMovimientos();
   }
 
+  const validGroups = ['Ingreso personal','Ingreso activos','Gasto vida','Gasto activos','Gasto personal','Gasto inversión','Interno'];
+  function ensureGroups(arr) {
+    arr.forEach(m => {
+      if (m.manualTag) return;
+      if (!m.group || !validGroups.includes(m.group)) {
+        const r = autoCateg(m.desc, m.detalle || '', m.importe);
+        m.cat   = r.cat;
+        m.group = r.group;
+      }
+    });
+    return arr;
+  }
+
   function importCSV(input, acct = 1) {
     const file = input.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = e => {
-      // Reemplaza completamente — no mezcla con ediciones previas
       if (acct === 3) {
-        movimientos3 = parseSantanderCSV(e.target.result);
+        movimientos3 = ensureGroups(parseSantanderCSV(e.target.result));
       } else {
-        const parsed = parseCSV(e.target.result);
+        const parsed = ensureGroups(parseCSV(e.target.result));
         if (acct === 1) movimientos = parsed;
         else movimientos2 = parsed;
       }
