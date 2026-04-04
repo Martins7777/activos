@@ -685,6 +685,7 @@
       <select id="rule-cat" class="rules-select" onchange="updateRuleTagOpts()">
         <option value="gastos">Gastos</option>
         <option value="ingresos">Ingresos</option>
+        <option value="interno">Interno</option>
       </select>
       <select id="rule-tag" class="rules-select"></select>
       <button class="btn-io btn-light" onclick="addUserRule()">Añadir</button>
@@ -711,6 +712,7 @@
   const movTagsByCategory = {
     ingresos: ['Nómina', 'Rentas', 'Interno'],
     gastos:   ['Vivienda Hipoteca y préstamos', 'Supermercado', 'Mant. propiedades', 'Transporte', 'Ocio', 'Suscripciones', 'Inversión personal', 'Inversión activos'],
+    interno:  ['Transferencia', 'Fianza'],
   };
 
   function fmt(v) {
