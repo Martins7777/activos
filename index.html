@@ -621,27 +621,6 @@
     <input type="file" id="csvInput3" accept=".csv" style="display:none" onchange="importCSV(this,3)">
     <div class="mov-toolbar" style="align-items:flex-end;gap:12px;margin-bottom:14px">
       <div class="mov-filter-group">
-        <span class="mov-filter-label">Cuenta 1</span>
-        <div style="display:flex;gap:4px">
-          <button class="btn-io btn-light" onclick="document.getElementById('csvInput').click()">↑ Importar CSV</button>
-          <button class="btn-io btn-light" onclick="if(confirm('¿Limpiar todos los datos de Cuenta 1?'))clearMovimientos(1)" title="Limpiar cuenta 1" style="color:var(--neg)">✕</button>
-        </div>
-      </div>
-      <div class="mov-filter-group">
-        <span class="mov-filter-label">Cuenta 2</span>
-        <div style="display:flex;gap:4px">
-          <button class="btn-io btn-light" onclick="document.getElementById('csvInput2').click()">↑ Importar CSV</button>
-          <button class="btn-io btn-light" onclick="if(confirm('¿Limpiar todos los datos de Cuenta 2?'))clearMovimientos(2)" title="Limpiar cuenta 2" style="color:var(--neg)">✕</button>
-        </div>
-      </div>
-      <div class="mov-filter-group">
-        <span class="mov-filter-label">Cuenta 3 (Santander)</span>
-        <div style="display:flex;gap:4px">
-          <button class="btn-io btn-light" onclick="document.getElementById('csvInput3').click()">↑ Importar CSV</button>
-          <button class="btn-io btn-light" onclick="if(confirm('¿Limpiar todos los datos de Cuenta 3?'))clearMovimientos(3)" title="Limpiar cuenta 3" style="color:var(--neg)">✕</button>
-        </div>
-      </div>
-      <div class="mov-filter-group">
         <span class="mov-filter-label">Cuenta</span>
         <select class="mov-select" id="mov-acct-filter" onchange="renderMovimientos()">
           <option value="">Todas</option>
@@ -663,19 +642,40 @@
         </select>
       </div>
       <div class="mov-kpi" id="mov-kpi"></div>
-      <button class="btn-io btn-light" onclick="openRulesModal()" title="Reglas de categorización automática" style="margin-left:4px;font-size:14px;padding:4px 8px">⚙</button>
+      <button class="btn-io btn-light" onclick="openRulesModal()" title="Configuración" style="margin-left:4px;font-size:14px;padding:4px 8px">⚙</button>
     </div>
     <div class="grid-container" id="mov-container"></div>
   </div>
 </main>
 
-<!-- Modal reglas de categorización -->
+<!-- Modal configuración movimientos -->
 <div class="rules-backdrop" id="rules-backdrop" onclick="if(event.target===this)closeRulesModal()">
   <div class="rules-modal">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <h3 style="margin:0">⚙ Reglas de categorización</h3>
+      <h3 style="margin:0">⚙ Configuración</h3>
       <button onclick="closeRulesModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text-muted);line-height:1;padding:0">&times;</button>
     </div>
+
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Importar datos</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;flex:1">Cuenta 1 (Bankinter)</span>
+        <button class="btn-io btn-light" onclick="document.getElementById('csvInput').click()">↑ Importar CSV</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;flex:1">Cuenta 2 (Bankinter)</span>
+        <button class="btn-io btn-light" onclick="document.getElementById('csvInput2').click()">↑ Importar CSV</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;flex:1">Cuenta 3 (Santander)</span>
+        <button class="btn-io btn-light" onclick="document.getElementById('csvInput3').click()">↑ Importar CSV</button>
+      </div>
+    </div>
+
+    <div style="padding-top:12px;border-top:1px solid var(--border);margin-bottom:16px">
+      <button class="btn-io btn-light" style="color:var(--neg);width:100%" onclick="if(confirm('¿Eliminar TODOS los movimientos de las tres cuentas? Esta acción no se puede deshacer.')){clearMovimientos(1);clearMovimientos(2);clearMovimientos(3);closeRulesModal()}">✕ Eliminar todos los datos</button>
+    </div>
+
     <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Reglas personalizadas (tienen prioridad)</div>
     <div id="rules-list"></div>
     <div class="rules-add">
