@@ -1171,8 +1171,8 @@
       const detalle = parts[3].trim();
       const importe = parseFloat((parts[4] || '0').trim().replace(/\./g,'').replace(',','.'));
       if (isNaN(importe)) return null;
-      const { cat, tag } = autoCateg(desc, detalle, importe);
-      return { fecha, desc, detalle, importe, cat, tag };
+      const { cat, group, tag } = autoCateg(desc, detalle, importe);
+      return { fecha, desc, detalle, importe, cat, group, tag };
     }).filter(Boolean);
   }
 
@@ -1187,8 +1187,8 @@
       const desc    = parts[2].trim();
       const importe = parseFloat((parts[3] || '0').trim().replace(/\./g,'').replace(',','.'));
       if (isNaN(importe) || !fecha) return null;
-      const { cat, tag } = autoCateg(desc, '', importe);
-      return { fecha, desc, detalle: '', importe, cat, tag };
+      const { cat, group, tag } = autoCateg(desc, '', importe);
+      return { fecha, desc, detalle: '', importe, cat, group, tag };
     }).filter(Boolean);
   }
 
