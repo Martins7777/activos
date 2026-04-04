@@ -682,11 +682,12 @@
       <div style="width:100%;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">Nueva regla</div>
       <input id="rule-keyword" class="rules-input" type="text" placeholder="Palabra clave (ej: SEQURA)" onkeydown="if(event.key==='Enter')addUserRule()">
       <input id="rule-valor" class="rules-input" type="number" placeholder="Valor exacto (opcional)" style="max-width:130px">
-      <select id="rule-cat" class="rules-select" onchange="updateRuleTagOpts()">
+      <select id="rule-cat" class="rules-select" onchange="updateRuleGroupOpts()">
         <option value="gastos">Gastos</option>
         <option value="ingresos">Ingresos</option>
         <option value="interno">Interno</option>
       </select>
+      <select id="rule-group" class="rules-select" onchange="updateRuleTagOpts()"></select>
       <select id="rule-tag" class="rules-select"></select>
       <button class="btn-io btn-light" onclick="addUserRule()">Añadir</button>
     </div>
@@ -708,11 +709,21 @@
     pasivos:  ['Hipoteca', 'Préstamo', 'Tarjeta']
   };
 
-  // Tags exclusivos de Movimientos (independientes del balance de Posición)
+  // Tags exclusivos de Movimientos — estructura jerárquica cat → grupo → subcategoría
   const movTagsByCategory = {
-    ingresos: ['Nómina', 'Rentas', 'Variable', 'Interno'],
-    gastos:   ['Vivienda Hipoteca y préstamos', 'Supermercado', 'Mant. propiedades', 'Transporte', 'Ocio', 'Suscripciones', 'Inversión personal', 'Inversión activos'],
-    interno:  ['Transferencia', 'Fianza'],
+    ingresos: {
+      'Ingreso tiempo':  ['Nómina', 'Variable'],
+      'Ingreso activos': ['Rentas'],
+    },
+    gastos: {
+      'Gasto vida':      ['Vivienda', 'Supermercado'],
+      'Gasto activos':   ['Mant. propiedades', 'Vivienda hipoteca y préstamos'],
+      'Gasto personal':  ['Ocio', 'Suscripciones', 'Transporte'],
+      'Gasto inversión': ['Inversión personal', 'Inversión nuevos activos'],
+    },
+    interno: {
+      'Interno': ['Transferencia', 'Fianza'],
+    },
   };
 
   function fmt(v) {
@@ -1017,59 +1028,54 @@
   // filtros movimientos
 
   const movRules = [
-    // Interno (traspasos entre cuentas propias, fianzas, ajustes)
+    // Interno
     { k:['traspasos propios','traspaso propio','transfer inmediata martin simon aldo',
          'liberacion fianza','constitucion fianza','devolucion puja','devolucion walter',
          'ajuste devolucion','palacio nov25','recibos varios','compra con tarjeta',
          'devolucion compra','spending tabaiba','cond.cuota tarjeta','cuota t. debit',
-         'traspaso propio;caix'], cat:'interno', tag:'Transferencia' },
-    // Ingresos - Nómina
-    { k:['00491770-martin simon aldo','martin simon aldo'], cat:'ingresos', tag:'Nómina' },
-    // Ingresos - Rentas (alquileres, ingresos fijos de terceros)
-    { k:['00750167-dominguez riesco'], cat:'ingresos', tag:'Rentas' },
-    // Ingresos - Nómina (bizum recibido, transferencias de terceros)
-    { k:['bizum recibido'], cat:'ingresos', tag:'Nómina' },
+         'traspaso propio;caix'], cat:'interno', group:'Interno', tag:'Transferencia' },
+    // Ingresos - Ingreso tiempo
+    { k:['00491770-martin simon aldo','martin simon aldo'], cat:'ingresos', group:'Ingreso tiempo', tag:'Nómina' },
+    { k:['bizum recibido'], cat:'ingresos', group:'Ingreso tiempo', tag:'Nómina' },
     { k:['21033240-ruben diaz','14650100-miguel angel hernando','21033025-alba sanchez',
          '20858068-moreno cerezo','00495189-cortes serrano','01825322-aldo martin simon',
-         '00730100-vasquez abella'], cat:'ingresos', tag:'Nómina' },
-    // Ingresos - Rentas (devoluciones, reembolsos)
-    { k:['alberto martin ge','2.plazo irpf'], cat:'ingresos', tag:'Rentas' },
-    // Gastos - Vivienda Hipoteca y préstamos
-    { k:['sequra'], cat:'gastos', tag:'Vivienda Hipoteca y préstamos' },
-    { k:['pago transferencias 2650-56-0002713'], cat:'gastos', tag:'Vivienda Hipoteca y préstamos' },
-    { k:['pago transferencias 2650-56-0006112'], cat:'gastos', tag:'Vivienda Hipoteca y préstamos' },
-    // Gastos - Mant. propiedades
-    { k:['pago traspasos 2650-56-0005099'], cat:'gastos', tag:'Mant. propiedades' },
+         '00730100-vasquez abella'], cat:'ingresos', group:'Ingreso tiempo', tag:'Nómina' },
+    // Ingresos - Ingreso activos
+    { k:['00750167-dominguez riesco'], cat:'ingresos', group:'Ingreso activos', tag:'Rentas' },
+    { k:['alberto martin ge','2.plazo irpf'], cat:'ingresos', group:'Ingreso activos', tag:'Rentas' },
+    // Gastos - Gasto activos
+    { k:['sequra'], cat:'gastos', group:'Gasto activos', tag:'Vivienda hipoteca y préstamos' },
+    { k:['pago transferencias 2650-56-0002713'], cat:'gastos', group:'Gasto activos', tag:'Vivienda hipoteca y préstamos' },
+    { k:['pago transferencias 2650-56-0006112'], cat:'gastos', group:'Gasto activos', tag:'Vivienda hipoteca y préstamos' },
+    { k:['pago traspasos 2650-56-0005099'], cat:'gastos', group:'Gasto activos', tag:'Mant. propiedades' },
     { k:['mutua madrile','itv guimar','taller davila','serv.const.fianza',
-         'colegio de regist','ayto.de madrid','ajunt.de'], cat:'gastos', tag:'Mant. propiedades' },
-    // Gastos - Supermercado
+         'colegio de regist','ayto.de madrid','ajunt.de'], cat:'gastos', group:'Gasto activos', tag:'Mant. propiedades' },
+    // Gastos - Gasto vida
     { k:['lidl','mercadona','carrefour','aldi ','spar ','supercor','alcampo','maskom',
-         'supermercados','minimarket'], cat:'gastos', tag:'Supermercado' },
-    // Gastos - Suscripciones
+         'supermercados','minimarket'], cat:'gastos', group:'Gasto vida', tag:'Supermercado' },
+    // Gastos - Gasto personal (suscripciones)
     { k:['spotify','google one','openai','chatgpt','claude.ai','wellhub','kraftwerk',
-         'amazon prime','sny box','snny crossfit'], cat:'gastos', tag:'Suscripciones' },
-    // Gastos - Ocio (deporte)
-    { k:['crossfit','hybrid day','decathlon','multitienda olymp'], cat:'gastos', tag:'Ocio' },
-    // Gastos - Transporte (viajes)
+         'amazon prime','sny box','snny crossfit'], cat:'gastos', group:'Gasto personal', tag:'Suscripciones' },
+    // Gastos - Gasto personal (ocio/deporte)
+    { k:['crossfit','hybrid day','decathlon','multitienda olymp'], cat:'gastos', group:'Gasto personal', tag:'Ocio' },
+    // Gastos - Gasto personal (transporte)
     { k:['vueling','iberia','ryanair','ouigo','renfe','naviera armas','fred.olsen',
-         'bolt.eu','easypark','nyx*airserv','cronos renfe','empresa municipal','sagulpa'], cat:'gastos', tag:'Transporte' },
-    // Gastos - Transporte (gasolina)
+         'bolt.eu','easypark','nyx*airserv','cronos renfe','empresa municipal','sagulpa'], cat:'gastos', group:'Gasto personal', tag:'Transporte' },
     { k:['plenergy','cedipsa','cepsa ','estacion serv','e.s. las','e.s. shell',
-         'h2exagon','us016b','us016ca','us246ca','us16b'], cat:'gastos', tag:'Transporte' },
-    // Gastos - Ocio (restaurantes/bares)
+         'h2exagon','us016b','us016ca','us246ca','us16b'], cat:'gastos', group:'Gasto personal', tag:'Transporte' },
+    // Gastos - Gasto personal (ocio restaurantes/bares)
     { k:['bar ','cafe ','cafeteria','restaurante','pingoneo','standard coffee',
          'nordis coffee','nescafe','marisma planta','table n ','faborit','komilona',
          'mostazza','factory gelat','kuups','jardin del mar','cerveceria','skinazo',
          'productores de so','tabaiba plaza','granier','922 food','sol ','pub ',
          'bar la','bar el','bar caf','bar ranea','bar soles','bar exlor',
-         'cafeteria brillan','cafeteria la ria','cafeteria mi bar'], cat:'gastos', tag:'Ocio' },
-    // Gastos - Ocio (otros)
-    { k:['bizum enviado'], cat:'gastos', tag:'Ocio' },
+         'cafeteria brillan','cafeteria la ria','cafeteria mi bar'], cat:'gastos', group:'Gasto personal', tag:'Ocio' },
+    { k:['bizum enviado'], cat:'gastos', group:'Gasto personal', tag:'Ocio' },
     { k:['amazon','temu','paypal','mediamarkt','media markt','agapea','chinatown',
          'sols cabell','bazar','fcia.','farmacia','tickety','vip district','ibex dual',
          'hd caletillas','hdx playa','ab servicios','islenio','yassine','flippers',
          'allday oasis','talaso','distribuciones ta','naviera','fred.','hsn store',
-         'pkiflyers','mostazza'], cat:'gastos', tag:'Ocio' },
+         'pkiflyers','mostazza'], cat:'gastos', group:'Gasto personal', tag:'Ocio' },
   ];
 
   function autoCateg(desc, detalle, importe) {
@@ -1077,26 +1083,35 @@
     for (const r of userMovRules) {
       if (!text.includes(r.k.toLowerCase())) continue;
       if (r.valor != null && Math.abs(Math.abs(importe) - Math.abs(r.valor)) > 0.01) continue;
-      return { cat: r.cat, tag: r.tag };
+      return { cat: r.cat, group: r.group, tag: r.tag };
     }
     for (const r of movRules) {
-      if (r.k.some(k => text.includes(k))) return { cat: r.cat, tag: r.tag };
+      if (r.k.some(k => text.includes(k))) return { cat: r.cat, group: r.group, tag: r.tag };
     }
-    return importe > 0 ? { cat:'ingresos', tag:'Nómina' } : { cat:'gastos', tag:'Ocio' };
+    return importe > 0
+      ? { cat:'ingresos', group:'Ingreso tiempo', tag:'Nómina' }
+      : { cat:'gastos',   group:'Gasto personal', tag:'Ocio' };
   }
 
   // ── Modal de reglas de categorización ────────────────────────
   function openRulesModal() {
     document.getElementById('rules-backdrop').classList.add('open');
     renderRulesModal();
-    updateRuleTagOpts();
+    updateRuleGroupOpts();
   }
   function closeRulesModal() {
     document.getElementById('rules-backdrop').classList.remove('open');
   }
+  function updateRuleGroupOpts() {
+    const cat = document.getElementById('rule-cat')?.value || 'gastos';
+    const grps = Object.keys(movTagsByCategory[cat] || {});
+    document.getElementById('rule-group').innerHTML = grps.map(g => `<option value="${g}">${g}</option>`).join('');
+    updateRuleTagOpts();
+  }
   function updateRuleTagOpts() {
     const cat = document.getElementById('rule-cat')?.value || 'gastos';
-    const tags = movTagsByCategory[cat] || [];
+    const grp = document.getElementById('rule-group')?.value || '';
+    const tags = (movTagsByCategory[cat] || {})[grp] || [];
     document.getElementById('rule-tag').innerHTML = tags.map(t => `<option value="${t}">${t}</option>`).join('');
   }
   function renderRulesModal() {
@@ -1106,9 +1121,9 @@
       return;
     }
     list.innerHTML = userMovRules.map((r, i) => {
-      const valorLabel = r.valor != null ? ` · ${r.valor} €` : ' · todos los importes';
+      const valorLabel = r.valor != null ? ` · ${r.valor} €` : ' · todos';
       return `<div class="rules-row">
-        <span style="flex:1"><strong>${r.k}</strong><span style="color:var(--text-muted)">${valorLabel} → ${r.cat} / ${r.tag}</span></span>
+        <span style="flex:1"><strong>${r.k}</strong><span style="color:var(--text-muted)">${valorLabel} → ${r.group} / ${r.tag}</span></span>
         <button onclick="deleteUserRule(${i})" style="background:none;border:none;cursor:pointer;color:var(--neg);font-size:14px;padding:0 4px" title="Eliminar">✕</button>
       </div>`;
     }).join('');
@@ -1117,8 +1132,9 @@
     [movimientos, movimientos2, movimientos3].forEach(arr => {
       arr.forEach(m => {
         if (m.manualTag) return; // respetar asignaciones manuales
-        const { cat, tag } = autoCateg(m.desc, m.detalle || '', m.importe);
+        const { cat, group, tag } = autoCateg(m.desc, m.detalle || '', m.importe);
         m.cat = cat;
+        m.group = group;
         m.tag = tag;
       });
     });
@@ -1128,11 +1144,12 @@
   function addUserRule() {
     const k = (document.getElementById('rule-keyword').value || '').trim();
     const cat = document.getElementById('rule-cat').value;
+    const group = document.getElementById('rule-group').value;
     const tag = document.getElementById('rule-tag').value;
-    if (!k || !cat || !tag) return;
+    if (!k || !cat || !group || !tag) return;
     const valorRaw = document.getElementById('rule-valor').value.trim();
     const valor = valorRaw !== '' ? parseFloat(valorRaw) : null;
-    userMovRules.push({ k, cat, tag, ...(valor != null ? { valor } : {}) });
+    userMovRules.push({ k, cat, group, tag, ...(valor != null ? { valor } : {}) });
     document.getElementById('rule-keyword').value = '';
     document.getElementById('rule-valor').value = '';
     renderRulesModal();
@@ -1244,11 +1261,12 @@
     renderMovimientos();
   }
 
-  function updateMovTag(idx, newTag, newCat, acct = 1) {
+  function updateMovTag(idx, newGroup, newTag, newCat, acct = 1) {
     const arr = acct === 1 ? movimientos : acct === 2 ? movimientos2 : movimientos3;
+    arr[idx].group = newGroup;
     arr[idx].tag = newTag;
     arr[idx].cat = newCat;
-    arr[idx].manualTag = true; // proteger de reapplyUserRules
+    arr[idx].manualTag = true;
     renderMovimientos();
   }
 
@@ -1302,22 +1320,36 @@
       <span><span>Gastos</span> <strong class="txt-neg">${fmt(totG)}</strong></span>
       <span><span>Balance</span> <strong class="${totI-totG>=0?'txt-pos':'txt-neg'}">${fmt(totI-totG)}</strong></span>`;
 
-    const allTags = {
-      ingresos: movTagsByCategory.ingresos,
-      gastos:   movTagsByCategory.gastos,
-      interno:  ['Transferencia', 'Fianza'],
-    };
+    // Orden de grupos según definición en movTagsByCategory
+    const groupOrder = {};
+    let _gIdx = 0;
+    ['ingresos','gastos','interno'].forEach(cat => {
+      Object.keys(movTagsByCategory[cat] || {}).forEach(grp => { groupOrder[cat + '|' + grp] = _gIdx++; });
+    });
 
-    // Agrupar por cat+tag, guardando acct y origIdx; incompatibles aparte
+    // Dropdown helper: optgroups por cat>grupo>subcategoría
+    function buildCatOpts(m) {
+      return ['ingresos','gastos','interno'].map(cat => {
+        const grps = movTagsByCategory[cat] || {};
+        return Object.entries(grps).map(([grp, tags]) =>
+          `<optgroup label="${grp}">${tags.map(t =>
+            `<option value="${cat}|${grp}|${t}" ${m.cat===cat && m.group===grp && m.tag===t ? 'selected':''}>${t}</option>`
+          ).join('')}</optgroup>`
+        ).join('');
+      }).join('');
+    }
+
+    // Agrupar por cat+group; incompatibles aparte
     const groups = {};
     const incompatible = [];
     function routeItem(m, ac, src) {
-      const valid = allTags[m.cat] && allTags[m.cat].includes(m.tag);
+      const grps = movTagsByCategory[m.cat];
+      const valid = grps && m.group && grps[m.group] && grps[m.group].includes(m.tag);
       if (!valid) {
         incompatible.push({ ...m, acct: ac, origIdx: src.indexOf(m) });
       } else {
-        const key = m.cat + '|' + m.tag;
-        if (!groups[key]) groups[key] = { cat: m.cat, tag: m.tag, items: [] };
+        const key = m.cat + '|' + m.group;
+        if (!groups[key]) groups[key] = { cat: m.cat, group: m.group, items: [] };
         groups[key].items.push({ ...m, acct: ac, origIdx: src.indexOf(m) });
       }
     }
@@ -1326,13 +1358,9 @@
     filtered3.forEach(m => routeItem(m, 3, movimientos3));
 
     function buildColumn(cats) {
-      const order = { ingresos: 0, gastos: 1, interno: 2 };
       const colGroups = Object.values(groups)
         .filter(g => cats.includes(g.cat))
-        .sort((a,b) => {
-          if (order[a.cat] !== order[b.cat]) return order[a.cat] - order[b.cat];
-          return a.tag.localeCompare(b.tag);
-        });
+        .sort((a,b) => (groupOrder[a.cat+'|'+a.group]||0) - (groupOrder[b.cat+'|'+b.group]||0));
 
       let html = '<div class="card" style="overflow:hidden">';
       const colLabel = cats.includes('ingresos') ? 'INGRESOS' : 'GASTOS';
@@ -1341,7 +1369,7 @@
       html += `<div class="card-header"><h2>${colLabel}</h2><span class="tot-val">${fmt(colTotal)}</span></div>`;
 
       colGroups.forEach(g => {
-        const gKey = g.cat + '|' + g.tag;
+        const gKey = g.cat + '|' + g.group;
         const isExpanded = expandedMovGroups[gKey] !== false;
         const sortMode = sortMovGroups[gKey] || 'fecha';
         const gTotal = g.items.reduce((s,m) => s + importeEfectivo(m), 0);
@@ -1351,7 +1379,7 @@
 
         html += `<div class="group-title-row" style="cursor:pointer" onclick="toggleMovGroup('${gKey}')">
           <span class="group-toggle ${!isExpanded ? 'collapsed' : ''}">▼</span>
-          <span style="flex:1;font-size:11px;font-weight:700;color:var(--text)">${g.tag}</span>
+          <span style="flex:1;font-size:11px;font-weight:700;color:var(--text)">${g.group}</span>
           <span style="font-size:13px;color:var(--text-muted);margin-right:8px;line-height:1" onclick="toggleMovSort('${gKey}',event)" title="${sortTitle}">${sortIcon}</span>
           <span class="group-sum ${colorCls}">${fmt(Math.abs(gTotal))}</span>
         </div>`;
@@ -1361,16 +1389,13 @@
           let items = [...g.items];
           if (sortMode === 'desc') items.sort((a,b) => Math.abs(b.importe) - Math.abs(a.importe));
           else if (sortMode === 'asc') items.sort((a,b) => Math.abs(a.importe) - Math.abs(b.importe));
-          else items.sort((a,b) => toTs(b.fecha) - toTs(a.fecha)); // fecha: más reciente primero
+          else items.sort((a,b) => toTs(b.fecha) - toTs(a.fecha));
 
           items.forEach(m => {
             const oi = m.origIdx;
             const ac = m.acct;
             const editKey = `${ac}-${oi}`;
-            const catOpts = ['ingresos','gastos','interno'].map(c =>
-              `<optgroup label="${c}">${(allTags[c]||[]).map(t =>
-                `<option value="${c}|${t}" ${m.cat===c && m.tag===t ? 'selected':''}>${t}</option>`
-              ).join('')}</optgroup>`).join('');
+            const catOpts = buildCatOpts(m);
             const rowCls = m.cat === 'interno' ? 'mov-interno' : '';
             const acctBadge = (movimientos2.length || movimientos3.length) ? `<span style="font-size:9px;color:var(--text-muted);margin-left:2px">[C${ac}]</span>` : '';
             const amortLabel = (() => {
@@ -1399,7 +1424,7 @@
                   onblur="${blurClose}"
                   onkeydown="if(event.key==='Enter'){movEditando=null;renderMovimientos()}"
                   id="mov-edit-${editKey}">
-                <select class="mov-tag-sel" data-ek="${editKey}" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${oi},t,c,${ac})})(this)">${catOpts}</select>
+                <select class="mov-tag-sel" data-ek="${editKey}" onchange="(function(s){const[c,g,t]=s.value.split('|');updateMovTag(${oi},g,t,c,${ac})})(this)">${catOpts}</select>
                 <span class="mov-importe ${impEf>=0?'txt-pos':'txt-neg'}">${fmt(impEf)}</span>
               </div>
               <div class="mov-edit-panel" data-ek="${editKey}">
@@ -1411,7 +1436,7 @@
               html += `<div class="mov-row ${rowCls}">
                 <span class="mov-fecha" onclick="movEditando='${editKey}';movEditandoFecha=true;renderMovimientos()" title="Click para editar">${m.fecha.slice(0,5)}</span>
                 <span class="mov-desc" style="cursor:text" onclick="movEditando='${editKey}';renderMovimientos()">${m.desc}${acctBadge}${amortLabel}</span>
-                <select class="mov-tag-sel" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${oi},t,c,${ac})})(this)">${catOpts}</select>
+                <select class="mov-tag-sel" onchange="(function(s){const[c,g,t]=s.value.split('|');updateMovTag(${oi},g,t,c,${ac})})(this)">${catOpts}</select>
                 <span class="mov-importe ${impEf>=0?'txt-pos':'txt-neg'}">${fmt(impEf)}</span>
               </div>`;
             }
@@ -1428,10 +1453,6 @@
 
     function buildIncompatibleSection() {
       if (!incompatible.length) return '';
-      const catOpts = (m) => ['ingresos','gastos','interno'].map(c =>
-        `<optgroup label="${c}">${(allTags[c]||[]).map(t =>
-          `<option value="${c}|${t}">${t}</option>`
-        ).join('')}</optgroup>`).join('');
       const toTs = f => { const [d,mo,y] = f.split('/'); return +new Date(+y, +mo-1, +d); };
       const sorted = [...incompatible].sort((a,b) => toTs(b.fecha) - toTs(a.fecha));
       const acctBadge = (ac) => (movimientos2.length || movimientos3.length)
@@ -1444,14 +1465,13 @@
       sorted.forEach(m => {
         const oi = m.origIdx;
         const ac = m.acct;
-        const arr = ac === 1 ? 'movimientos' : ac === 2 ? 'movimientos2' : 'movimientos3';
         const impEf = importeEfectivo(m);
-        const tagLabel = m.cat || m.tag ? `<span style="font-size:10px;color:#92400e;margin-left:4px">[${m.cat||'?'}/${m.tag||'?'}]</span>` : '';
+        const tagLabel = `<span style="font-size:10px;color:#92400e;margin-left:4px">[${m.group||m.cat||'?'}/${m.tag||'?'}]</span>`;
         html += `<div class="mov-row" style="background:#fffbeb">
           <span class="mov-fecha">${m.fecha.slice(0,5)}</span>
           <span class="mov-desc">${m.desc}${acctBadge(ac)}${tagLabel}</span>
-          <select class="mov-tag-sel" onchange="(function(s){const[c,t]=s.value.split('|');updateMovTag(${oi},t,c,${ac})})(this)">
-            <option value="">-- Asignar --</option>${catOpts(m)}
+          <select class="mov-tag-sel" onchange="(function(s){const[c,g,t]=s.value.split('|');updateMovTag(${oi},g,t,c,${ac})})(this)">
+            <option value="">-- Asignar --</option>${buildCatOpts(m)}
           </select>
           <span class="mov-importe ${impEf>=0?'txt-pos':'txt-neg'}">${fmt(impEf)}</span>
         </div>`;
