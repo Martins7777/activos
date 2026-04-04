@@ -1116,6 +1116,7 @@
   function reapplyUserRules() {
     [movimientos, movimientos2, movimientos3].forEach(arr => {
       arr.forEach(m => {
+        if (m.manualTag) return; // respetar asignaciones manuales
         const { cat, tag } = autoCateg(m.desc, m.detalle || '', m.importe);
         m.cat = cat;
         m.tag = tag;
@@ -1247,6 +1248,7 @@
     const arr = acct === 1 ? movimientos : acct === 2 ? movimientos2 : movimientos3;
     arr[idx].tag = newTag;
     arr[idx].cat = newCat;
+    arr[idx].manualTag = true; // proteger de reapplyUserRules
     renderMovimientos();
   }
 
