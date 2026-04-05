@@ -6,6 +6,7 @@
   <title>AMS · GP</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --bg: #f8fafc;
@@ -507,6 +508,14 @@
     .mov-amort-check { accent-color: var(--brand); cursor: pointer; }
     .mov-amort-label { cursor: pointer; }
 
+    /* Selects dentro de card-header oscuro */
+    .card-header .mov-select {
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.2);
+      color: white;
+    }
+    .card-header .mov-select option { background: var(--brand); color: white; }
+
     @media (max-width: 640px) {
       .grid-container { grid-template-columns: 1fr; }
       .col-tag { width: 56px; }
@@ -560,8 +569,6 @@
     <button class="btn-io btn-save" id="btn-save" onclick="saveToWorker()" title="Guardar en la nube">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Guardar
     </button>
-    <button class="btn-io btn-asesor" id="btn-asesor" onclick="copyToAsesor()" title="Copiar prompt de balance para asesor IA">✦ Balance</button>
-    <button class="btn-io btn-asesor" id="btn-mov-asesor" onclick="copyMovAsesor()" title="Copiar prompt de movimientos para asesor IA">✦ Flujos</button>
     <button class="btn-io" onclick="toggleConfig()" id="btn-cfg">⚙ Config</button>
     <input type="file" id="fileInput" accept=".json" style="display:none" onchange="importData(this)">
     <div id="date" style="font-size:10px; font-weight:600; opacity:0.7;"></div>
@@ -604,6 +611,9 @@
   </div>
 
   <div id="tab-posicion">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <button class="btn-io btn-asesor" id="btn-asesor" onclick="copyToAsesor()" title="Copiar prompt de balance para asesor IA">✦ Asesor</button>
+    </div>
     <div class="grid-container">
       <div id="container-ingresos" class="card-wrap"></div>
       <div id="container-gastos" class="card-wrap"></div>
@@ -648,9 +658,47 @@
         <input id="mov-search" type="text" placeholder="Concepto o detalle…" class="mov-select" style="width:100%" oninput="renderMovimientos()">
       </div>
       <div class="mov-kpi" id="mov-kpi"></div>
+      <button class="btn-io btn-asesor" id="btn-mov-asesor" onclick="copyMovAsesor()" title="Copiar prompt de flujos para asesor IA">✦ Asesor</button>
       <button class="btn-io btn-light" onclick="openRulesModal()" title="Configuración" style="margin-left:4px;font-size:14px;padding:4px 8px">⚙</button>
     </div>
     <div class="grid-container" id="mov-container"></div>
+
+    <!-- Gráfico mensual -->
+    <div class="card" style="margin-top:20px;overflow:visible">
+      <div class="card-header" style="flex-wrap:wrap;gap:8px">
+        <h2>Evolución mensual</h2>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto">
+          <select class="mov-select" id="chart-acct" onchange="renderChart()" style="font-size:10px">
+            <option value="">Todas las cuentas</option>
+            <option value="1">Cuenta 1</option>
+            <option value="2">Cuenta 2</option>
+            <option value="3">Cuenta 3</option>
+          </select>
+          <select class="mov-select" id="chart-year" onchange="renderChart()" style="font-size:10px">
+            <option value="">Todos los años</option>
+          </select>
+          <select class="mov-select" id="chart-group" onchange="renderChart()" style="font-size:10px">
+            <option value="">Todas las categorías</option>
+            <option value="ingresos|">── INGRESOS ──</option>
+            <option value="ingresos|Ingreso personal">Ingreso personal</option>
+            <option value="ingresos|Ingreso activos">Ingreso activos</option>
+            <option value="gastos|">── GASTOS ──</option>
+            <option value="gastos|Gasto supermercado">Gasto supermercado</option>
+            <option value="gastos|Gasto transporte">Gasto transporte</option>
+            <option value="gastos|Gasto suscripciones">Gasto suscripciones</option>
+            <option value="gastos|Gasto vida">Gasto vida</option>
+            <option value="gastos|Gasto activos">Gasto activos</option>
+            <option value="gastos|Gasto personal">Gasto personal</option>
+            <option value="gastos|Gasto inversión">Gasto inversión</option>
+            <option value="interno|Interno">Interno</option>
+          </select>
+        </div>
+        <div id="chart-kpi" style="font-size:11px;font-weight:700;white-space:nowrap;opacity:0.9"></div>
+      </div>
+      <div style="padding:16px;position:relative;height:260px">
+        <canvas id="mov-chart"></canvas>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -718,7 +766,7 @@
   // Categorías de Movimientos — solo nivel grupo (sin subcategoría)
   const movTagsByCategory = {
     ingresos: ['Ingreso personal', 'Ingreso activos'],
-    gastos:   ['Gasto vida', 'Gasto activos', 'Gasto personal', 'Gasto inversión'],
+    gastos:   ['Gasto vida', 'Gasto supermercado', 'Gasto transporte', 'Gasto suscripciones', 'Gasto activos', 'Gasto personal', 'Gasto inversión'],
     interno:  ['Interno'],
   };
 
@@ -1015,7 +1063,7 @@
     document.getElementById('tab-btn-analisis').classList.toggle('active', tab === 'analisis');
     document.getElementById('tab-btn-movimientos').classList.toggle('active', tab === 'movimientos');
     if (tab === 'analisis') renderAnalisis();
-    if (tab === 'movimientos') renderMovimientos();
+    if (tab === 'movimientos') { renderMovimientos(); renderChart(); }
   }
 
   // ── Movimientos ──────────────────────────────────────────────
@@ -1045,16 +1093,19 @@
     { k:['sequra','pago transferencias 2650-56-0002713','pago transferencias 2650-56-0006112',
          'pago traspasos 2650-56-0005099','mutua madrile','itv guimar','taller davila',
          'serv.const.fianza','colegio de regist','ayto.de madrid','ajunt.de'], cat:'gastos', group:'Gasto activos' },
-    // Gastos - Gasto vida (supermercado, alimentación)
+    // Gastos - Gasto supermercado
     { k:['lidl','mercadona','carrefour','aldi ','spar ','supercor','alcampo','maskom',
-         'supermercados','minimarket'], cat:'gastos', group:'Gasto vida' },
-    // Gastos - Gasto personal (resto: ocio, transporte, suscripciones...)
-    { k:['spotify','google one','openai','chatgpt','claude.ai','wellhub','kraftwerk',
-         'amazon prime','sny box','snny crossfit','crossfit','hybrid day','decathlon',
-         'multitienda olymp','vueling','iberia','ryanair','ouigo','renfe','naviera armas',
-         'fred.olsen','bolt.eu','easypark','nyx*airserv','cronos renfe','empresa municipal',
+         'supermercados','minimarket'], cat:'gastos', group:'Gasto supermercado' },
+    // Gastos - Gasto transporte
+    { k:['vueling','iberia','ryanair','ouigo','renfe','naviera armas','fred.olsen',
+         'bolt.eu','easypark','nyx*airserv','cronos renfe','empresa municipal',
          'sagulpa','plenergy','cedipsa','cepsa ','estacion serv','e.s. las','e.s. shell',
-         'h2exagon','us016b','us016ca','us246ca','us16b',
+         'h2exagon','us016b','us016ca','us246ca','us16b','naviera','fred.'], cat:'gastos', group:'Gasto transporte' },
+    // Gastos - Gasto suscripciones
+    { k:['spotify','google one','openai','chatgpt','claude.ai','wellhub','kraftwerk',
+         'amazon prime','sny box'], cat:'gastos', group:'Gasto suscripciones' },
+    // Gastos - Gasto vida (ocio, restauración, compras personales)
+    { k:['snny crossfit','crossfit','hybrid day','decathlon','multitienda olymp',
          'bar ','cafe ','cafeteria','restaurante','pingoneo','standard coffee',
          'nordis coffee','nescafe','marisma planta','table n ','faborit','komilona',
          'mostazza','factory gelat','kuups','jardin del mar','cerveceria','skinazo',
@@ -1064,8 +1115,8 @@
          'bizum enviado','amazon','temu','paypal','mediamarkt','media markt','agapea',
          'chinatown','sols cabell','bazar','fcia.','farmacia','tickety','vip district',
          'ibex dual','hd caletillas','hdx playa','ab servicios','islenio','yassine',
-         'flippers','allday oasis','talaso','distribuciones ta','naviera','fred.',
-         'hsn store','pkiflyers'], cat:'gastos', group:'Gasto personal' },
+         'flippers','allday oasis','talaso','distribuciones ta',
+         'hsn store','pkiflyers'], cat:'gastos', group:'Gasto vida' },
   ];
 
   function autoCateg(desc, detalle, importe) {
@@ -1182,7 +1233,7 @@
     renderMovimientos();
   }
 
-  const validGroups = ['Ingreso personal','Ingreso activos','Gasto vida','Gasto activos','Gasto personal','Gasto inversión','Interno'];
+  const validGroups = ['Ingreso personal','Ingreso activos','Gasto vida','Gasto supermercado','Gasto transporte','Gasto suscripciones','Gasto activos','Gasto personal','Gasto inversión','Interno'];
   function ensureGroups(arr) {
     arr.forEach(m => {
       if (m.manualTag) {
@@ -1249,6 +1300,153 @@
         return `<option value="${p}" ${p === curMonth ? 'selected' : ''}>${label}</option>`;
       }).join('');
     }
+  }
+
+  // ── Gráfico mensual ────────────────────────────────────────────────
+  let _chartInst = null;
+
+  function renderChart() {
+    const canvasEl = document.getElementById('mov-chart');
+    if (!canvasEl) return;
+
+    const acctF  = document.getElementById('chart-acct')?.value  || '';
+    const yearF  = document.getElementById('chart-year')?.value  || '';
+    const groupF = document.getElementById('chart-group')?.value || '';
+
+    // Sincronizar años del selector del gráfico
+    const all = [...movimientos, ...movimientos2, ...movimientos3];
+    const chartYearSel = document.getElementById('chart-year');
+    if (chartYearSel) {
+      const cur = chartYearSel.value;
+      const years = [...new Set(all.map(m => (m.fecha||'').split('/')[2]).filter(Boolean))].sort().reverse();
+      chartYearSel.innerHTML = '<option value="">Todos los años</option>' +
+        years.map(y => `<option value="${y}" ${y === cur ? 'selected':''}>${y}</option>`).join('');
+    }
+
+    // Filtrar fuente
+    function srcFor(arr, ac) {
+      if (acctF && acctF !== String(ac)) return [];
+      return arr;
+    }
+    const src = [
+      ...srcFor(movimientos,  1),
+      ...srcFor(movimientos2, 2),
+      ...srcFor(movimientos3, 3),
+    ];
+
+    // Parsear filtro de grupo
+    let filterCat = '', filterGroup = '';
+    if (groupF) {
+      const [c, g] = groupF.split('|');
+      filterCat = c; filterGroup = g;
+    }
+
+    // Acumular por mes
+    const byMonth = {};
+    src.forEach(m => {
+      const parts = (m.fecha||'').split('/');
+      if (parts.length < 3) return;
+      const [, mo, y] = parts;
+      if (yearF && y !== yearF) return;
+      if (filterCat && m.cat !== filterCat) return;
+      if (filterGroup && m.group !== filterGroup) return;
+      if (!filterCat && m.cat === 'interno') return; // excluir interno salvo filtro explícito
+      const key = `${y}-${mo.padStart(2,'0')}`;
+      if (!byMonth[key]) byMonth[key] = { ing: 0, gas: 0 };
+      if (m.cat === 'ingresos') byMonth[key].ing += m.importe;
+      else byMonth[key].gas += m.importe; // gastos son negativos
+    });
+
+    const labels = Object.keys(byMonth).sort();
+    if (!labels.length) {
+      if (_chartInst) { _chartInst.destroy(); _chartInst = null; }
+      document.getElementById('chart-kpi').textContent = '';
+      canvasEl.getContext('2d').clearRect(0,0,canvasEl.width,canvasEl.height);
+      return;
+    }
+
+    // Determinar modo: si hay filtro de grupo concreto mostrar solo esa serie
+    const singleSeries = !!filterGroup || filterCat === 'ingresos' || filterCat === 'gastos';
+    const datasets = [];
+
+    if (!filterCat) {
+      // Sin filtro: barras ingresos + barras gastos (abs)
+      datasets.push({
+        label: 'Ingresos',
+        data: labels.map(k => +(byMonth[k].ing.toFixed(2))),
+        backgroundColor: 'rgba(16,185,129,0.75)',
+        borderColor: 'rgba(16,185,129,1)',
+        borderWidth: 1, borderRadius: 4,
+      });
+      datasets.push({
+        label: 'Gastos',
+        data: labels.map(k => +(Math.abs(byMonth[k].gas).toFixed(2))),
+        backgroundColor: 'rgba(239,68,68,0.7)',
+        borderColor: 'rgba(239,68,68,1)',
+        borderWidth: 1, borderRadius: 4,
+      });
+    } else if (filterCat === 'ingresos' && !filterGroup) {
+      datasets.push({
+        label: 'Ingresos',
+        data: labels.map(k => +(byMonth[k].ing.toFixed(2))),
+        backgroundColor: 'rgba(16,185,129,0.75)',
+        borderColor: 'rgba(16,185,129,1)',
+        borderWidth: 1, borderRadius: 4,
+      });
+    } else {
+      // Filtro por grupo concreto o gastos genérico
+      datasets.push({
+        label: filterGroup || 'Gastos',
+        data: labels.map(k => +(Math.abs(byMonth[k].gas + byMonth[k].ing).toFixed(2))),
+        backgroundColor: 'rgba(99,102,241,0.75)',
+        borderColor: 'rgba(99,102,241,1)',
+        borderWidth: 1, borderRadius: 4,
+      });
+    }
+
+    // KPI: media mensual
+    const allVals = datasets[0].data;
+    const total   = allVals.reduce((s,v) => s+v, 0);
+    const media   = total / (allVals.length || 1);
+    const fmt2    = v => new Intl.NumberFormat('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v) + ' €';
+    const kpiLabel = (filterGroup || (filterCat ? filterCat : 'gastos'));
+    document.getElementById('chart-kpi').textContent =
+      `Media ${kpiLabel}: ${fmt2(media)}/mes · Total: ${fmt2(total)}`;
+
+    // Etiquetas eje X legibles
+    const xLabels = labels.map(k => {
+      const [y, mo] = k.split('-');
+      return new Date(+y,+mo-1,1).toLocaleDateString('es-ES',{month:'short',year:'2-digit'});
+    });
+
+    if (_chartInst) _chartInst.destroy();
+    _chartInst = new Chart(canvasEl, {
+      type: 'bar',
+      data: { labels: xLabels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#1e293b', font: { family: 'Inter', size: 11 } } },
+          tooltip: {
+            callbacks: {
+              label: ctx => ` ${ctx.dataset.label}: ${fmt2(ctx.parsed.y)}`
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { color: '#64748b', font: { family: 'Inter', size: 10 } }, grid: { display: false } },
+          y: {
+            ticks: {
+              color: '#64748b', font: { family: 'Inter', size: 10 },
+              callback: v => new Intl.NumberFormat('es-ES',{notation:'compact'}).format(v) + ' €'
+            },
+            grid: { color: '#e2e8f0' },
+            beginAtZero: true,
+          }
+        }
+      }
+    });
   }
 
   function toggleMovGroup(key) {
@@ -1485,6 +1683,7 @@
     }
 
     container.innerHTML = buildColumn(['ingresos','interno']) + buildColumn(['gastos']) + buildIncompatibleSection();
+    renderChart();
 
     if (movEditando !== null) {
       const inp = document.getElementById(`mov-edit-${movEditando}`);
