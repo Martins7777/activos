@@ -512,7 +512,8 @@
       .col-tag { width: 56px; }
       .col-val { width: 76px; }
       .ratios-grid { grid-template-columns: 1fr; }
-      .mov-kpi { margin-left: 0; width: 100%; }
+      .mov-kpi { margin-left: 0; width: 100%; order: 10; }
+      .mov-search-wrap { width: 100%; order: 9; }
     }
 
     /* Modal de reglas */
@@ -559,7 +560,8 @@
     <button class="btn-io btn-save" id="btn-save" onclick="saveToWorker()" title="Guardar en la nube">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Guardar
     </button>
-    <button class="btn-io btn-asesor" id="btn-asesor" onclick="copyToAsesor()" title="Copiar prompt para asesor IA">✦ Asesor</button>
+    <button class="btn-io btn-asesor" id="btn-asesor" onclick="copyToAsesor()" title="Copiar prompt de balance para asesor IA">✦ Balance</button>
+    <button class="btn-io btn-asesor" id="btn-mov-asesor" onclick="copyMovAsesor()" title="Copiar prompt de movimientos para asesor IA">✦ Flujos</button>
     <button class="btn-io" onclick="toggleConfig()" id="btn-cfg">⚙ Config</button>
     <input type="file" id="fileInput" accept=".json" style="display:none" onchange="importData(this)">
     <div id="date" style="font-size:10px; font-weight:600; opacity:0.7;"></div>
@@ -641,6 +643,10 @@
           <option value="">Todos</option>
         </select>
       </div>
+      <div class="mov-filter-group mov-search-wrap" style="flex:1;min-width:140px">
+        <span class="mov-filter-label">Buscar</span>
+        <input id="mov-search" type="text" placeholder="Concepto o detalle…" class="mov-select" style="width:100%" oninput="renderMovimientos()">
+      </div>
       <div class="mov-kpi" id="mov-kpi"></div>
       <button class="btn-io btn-light" onclick="openRulesModal()" title="Configuración" style="margin-left:4px;font-size:14px;padding:4px 8px">⚙</button>
     </div>
@@ -672,7 +678,8 @@
       </div>
     </div>
 
-    <div style="padding-top:12px;border-top:1px solid var(--border);margin-bottom:16px">
+    <div style="padding-top:12px;border-top:1px solid var(--border);margin-bottom:16px;display:flex;flex-direction:column;gap:8px">
+      <button class="btn-io btn-light" style="width:100%" onclick="[movimientos,movimientos2,movimientos3].forEach(arr=>ensureGroups(arr));renderMovimientos();setStatus('Recategorizado','ok')">↺ Recategorizar todo</button>
       <button class="btn-io btn-light" style="color:var(--neg);width:100%" onclick="if(confirm('¿Eliminar TODOS los movimientos de las tres cuentas? Esta acción no se puede deshacer.')){clearMovimientos(1);clearMovimientos(2);clearMovimientos(3);closeRulesModal()}">✕ Eliminar todos los datos</button>
     </div>
 
@@ -1178,7 +1185,17 @@
   const validGroups = ['Ingreso personal','Ingreso activos','Gasto vida','Gasto activos','Gasto personal','Gasto inversión','Interno'];
   function ensureGroups(arr) {
     arr.forEach(m => {
-      if (m.manualTag) return; // nunca tocar los marcados manualmente
+      if (m.manualTag) {
+        // Si el grupo manual ya no es válido (categorías antiguas), limpiar y recategorizar
+        const grps = movTagsByCategory[m.cat] || [];
+        if (!m.group || !grps.includes(m.group)) {
+          delete m.manualTag;
+          const r = autoCateg(m.desc, m.detalle || '', m.importe);
+          m.cat   = r.cat;
+          m.group = r.group;
+        }
+        return;
+      }
       // Siempre reaplicar autoCateg — garantiza grupo válido aunque el dato venga de Cloudflare con formato antiguo
       const r = autoCateg(m.desc, m.detalle || '', m.importe);
       m.cat   = r.cat;
@@ -1270,6 +1287,7 @@
     const acctFilter = document.getElementById('mov-acct-filter')?.value || '';
     const selYear    = document.getElementById('mov-year-filter')?.value  || '';
     const selMonth   = document.getElementById('mov-months-filter')?.value || '';
+    const searchQ    = (document.getElementById('mov-search')?.value || '').toLowerCase().trim();
     const filterY    = selMonth ? selMonth.split('-')[0] : (selYear || null);
 
     function filterArr(arr, acct) {
@@ -1277,10 +1295,13 @@
       return arr.filter(m => {
         const [d, mo, y] = m.fecha.split('/');
         if (selMonth) {
-          if (m.amortizar) return y === filterY;
-          return `${y}-${mo}` === selMonth;
+          if (m.amortizar) { if (y !== filterY) return false; }
+          else if (`${y}-${mo}` !== selMonth) return false;
+        } else if (selYear && y !== selYear) return false;
+        if (searchQ) {
+          const hay = ((m.desc || '') + ' ' + (m.detalle || '')).toLowerCase();
+          if (!hay.includes(searchQ)) return false;
         }
-        if (selYear) return y === selYear;
         return true;
       });
     }
@@ -1619,6 +1640,77 @@
     });
     audit += `</tbody></table></div>`;
     document.getElementById('audit-container').innerHTML = audit;
+  }
+
+  function copyMovAsesor() {
+    const fmtE = v => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + ' €';
+    const all  = [...movimientos, ...movimientos2, ...movimientos3];
+    if (!all.length) { alert('No hay movimientos cargados.'); return; }
+
+    // Rango de fechas
+    const toTs = f => { const [d,m,y] = (f||'').split('/'); return +new Date(+y,+m-1,+d); };
+    const sortedAll = [...all].sort((a,b) => toTs(a.fecha) - toTs(b.fecha));
+    const fechaMin = sortedAll[0].fecha;
+    const fechaMax = sortedAll[sortedAll.length-1].fecha;
+
+    // ── 1. Generar y descargar CSV con todos los movimientos ──────────
+    const csvHeader = 'FECHA;CONCEPTO;DETALLE;IMPORTE;CATEGORIA;GRUPO\n';
+    const csvRows = sortedAll.map(m => {
+      const esc = v => '"' + String(v||'').replace(/"/g,'""') + '"';
+      return [m.fecha, esc(m.desc), esc(m.detalle||''), String(m.importe).replace('.',','), m.cat||'', m.group||''].join(';');
+    }).join('\n');
+    const csvBlob = new Blob(['\uFEFF' + csvHeader + csvRows], { type: 'text/csv;charset=utf-8;' });
+    const csvUrl  = URL.createObjectURL(csvBlob);
+    const csvLink = document.createElement('a');
+    const csvFileName = `movimientos_${fechaMin.replace(/\//g,'-')}_${fechaMax.replace(/\//g,'-')}.csv`;
+    csvLink.href = csvUrl;
+    csvLink.download = csvFileName;
+    csvLink.click();
+    setTimeout(() => URL.revokeObjectURL(csvUrl), 3000);
+
+    // ── 2. Construir y copiar el prompt ───────────────────────────────
+    const prompt = `Eres un asesor financiero independiente especializado en análisis de flujos de caja personales.
+
+Te adjunto un fichero CSV con todos mis movimientos bancarios reales.
+Estructura del fichero (separador ";"):
+- FECHA: formato DD/MM/AAAA
+- CONCEPTO: descripción del movimiento
+- DETALLE: información adicional del banco
+- IMPORTE: positivo = ingreso, negativo = gasto (en euros)
+- CATEGORIA: ingresos / gastos / interno
+- GRUPO: subcategoría (ej. "Gasto vida", "Gasto activos", "Ingreso personal", "Interno")
+
+IMPORTANTE: Los movimientos con CATEGORIA "interno" son traspasos entre mis propias cuentas bancarias. Exclúyelos del análisis de flujos de caja reales.
+
+A partir del fichero completo, analiza patrones, frecuencias, importes, estacionalidad y comportamiento por concepto individual.
+
+Estructura tu respuesta en dos partes:
+
+**PARTE 1 — ANÁLISIS DIRECTO**
+Redacta un análisis narrativo de mis flujos de caja: cómo entran y salen los ingresos, qué categorías concentran más gasto, si hay estacionalidad, conceptos recurrentes relevantes, anomalías o gastos puntuales destacables. Sé directo y cita cifras y fechas concretas del CSV.
+
+**PARTE 2 — RESUMEN EN TABLAS**
+
+*5 Fortalezas de mis flujos de caja*
+| # | Fortaleza | Evidencia concreta del CSV | Valoración |
+|---|-----------|---------------------------|------------|
+
+*5 Aspectos a mejorar en mi comportamiento financiero*
+| # | Aspecto | Evidencia concreta del CSV | Impacto estimado |
+|---|---------|-----------------------------|-----------------|
+
+*5 Acciones concretas a tomar*
+| # | Acción | Justificación con datos del CSV | Ahorro/beneficio esperado | Prioridad |
+|---|--------|--------------------------------|--------------------------|-----------|
+
+No uses lenguaje genérico ni suposiciones externas al CSV.`;
+
+    navigator.clipboard.writeText(prompt).then(() => {
+      const btn = document.getElementById('btn-mov-asesor');
+      btn.textContent = '✓ CSV + Prompt';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.innerHTML = '✦ Asesor'; btn.classList.remove('copied'); }, 3000);
+    });
   }
 
   function copyToAsesor() {
